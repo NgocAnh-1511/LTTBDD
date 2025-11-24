@@ -6,6 +6,7 @@ data class UserModel(
     var fullName: String = "",
     var email: String = "",
     var password: String = "",
+    var avatarPath: String = "", // Đường dẫn đến ảnh đại diện
     var createdAt: Long = System.currentTimeMillis()
 )
 

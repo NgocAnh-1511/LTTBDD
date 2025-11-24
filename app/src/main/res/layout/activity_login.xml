@@ -11,23 +11,30 @@
         android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:paddingBottom="24dp">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingHorizontal="24dp">
+            android:paddingHorizontal="24dp"
+            android:paddingBottom="100dp">
 
             <!-- Logo CoffeeCup -->
             <ImageView
                 android:id="@+id/logo"
-                android:layout_width="200dp"
-                android:layout_height="120dp"
-                android:layout_marginTop="120dp"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:maxWidth="200dp"
+                android:maxHeight="120dp"
+                android:adjustViewBounds="true"
+                android:layout_marginTop="80dp"
                 android:scaleType="fitCenter"
+                app:layout_constraintDimensionRatio="5:3"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintWidth_percent="0.5"
                 app:srcCompat="@drawable/logo"
                 tools:ignore="ContentDescription" />
 
@@ -87,15 +94,18 @@
                 <EditText
                     android:id="@+id/etPhone"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
                     android:layout_marginTop="20dp"
                     android:background="@drawable/input_field_bg"
                     android:hint="@string/enter_phone"
                     android:inputType="text"
+                    android:imeOptions="actionNext"
                     android:focusable="true"
                     android:clickable="true"
                     android:enabled="true"
                     android:paddingHorizontal="20dp"
+                    android:paddingVertical="16dp"
                     android:textColor="@color/darkBrown"
                     android:textColorHint="@color/grey"
                     android:textSize="18sp" />
@@ -104,12 +114,15 @@
                 <EditText
                     android:id="@+id/etPassword"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
                     android:layout_marginTop="20dp"
                     android:background="@drawable/input_field_bg"
                     android:hint="@string/enter_password"
                     android:inputType="textPassword"
+                    android:imeOptions="actionNext"
                     android:paddingHorizontal="20dp"
+                    android:paddingVertical="16dp"
                     android:textColor="@color/darkBrown"
                     android:textColorHint="@color/grey"
                     android:textSize="18sp" />
@@ -118,12 +131,15 @@
                 <EditText
                     android:id="@+id/etConfirmPassword"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
                     android:layout_marginTop="20dp"
                     android:background="@drawable/input_field_bg"
                     android:hint="@string/confirm_password_dots"
                     android:inputType="textPassword"
+                    android:imeOptions="actionDone"
                     android:paddingHorizontal="20dp"
+                    android:paddingVertical="16dp"
                     android:textColor="@color/darkBrown"
                     android:textColorHint="@color/grey"
                     android:textSize="18sp"
@@ -133,7 +149,8 @@
                 <Button
                     android:id="@+id/btnLogin"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
                     android:layout_marginTop="28dp"
                     android:background="@drawable/orange_button_bg"
                     android:backgroundTint="@null"
@@ -141,16 +158,18 @@
                     android:insetTop="0dp"
                     android:insetRight="0dp"
                     android:insetBottom="0dp"
+                    android:paddingVertical="16dp"
                     android:text="Đăng nhập"
                     android:textColor="@color/white"
-                    android:textSize="20sp"
+                    android:textSize="18sp"
                     android:textStyle="bold" />
 
                 <!-- Continue Button (for Register) -->
                 <Button
                     android:id="@+id/btnContinue"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
                     android:layout_marginTop="28dp"
                     android:background="@drawable/orange_button_bg"
                     android:backgroundTint="@null"
@@ -158,9 +177,10 @@
                     android:insetTop="0dp"
                     android:insetRight="0dp"
                     android:insetBottom="0dp"
+                    android:paddingVertical="16dp"
                     android:text="@string/continue_button"
                     android:textColor="@color/white"
-                    android:textSize="20sp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
 
@@ -182,14 +202,16 @@
                 <LinearLayout
                     android:id="@+id/btnFacebookLogin"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
                     android:layout_marginTop="28dp"
                     android:background="@drawable/facebook_button_bg"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center"
                     android:orientation="horizontal"
-                    android:paddingHorizontal="16dp">
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="16dp">
 
                     <ImageView
                         android:layout_width="24dp"
@@ -211,7 +233,8 @@
                 <LinearLayout
                     android:id="@+id/btnFacebookRegister"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
                     android:layout_marginTop="28dp"
                     android:background="@drawable/facebook_button_bg"
                     android:clickable="true"
@@ -219,6 +242,7 @@
                     android:gravity="center"
                     android:orientation="horizontal"
                     android:paddingHorizontal="16dp"
+                    android:paddingVertical="16dp"
                     android:visibility="gone">
 
                     <ImageView

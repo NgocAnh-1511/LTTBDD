@@ -1,12 +1,16 @@
 package com.example.coffeeshop.Adapter
 
 import android.content.Context
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.example.coffeeshop.Activity.DetailActivity
 import com.example.coffeeshop.Domain.ItemsModel
 import com.example.coffeeshop.databinding.ViewholderPopularBinding
+import com.google.gson.Gson
 
 class PopularAdapter(
     val items: MutableList<ItemsModel>,
@@ -31,19 +35,35 @@ RecyclerView.Adapter<PopularAdapter.ViewHolder>() {
     }
 
     override fun onBindViewHolder(holder: PopularAdapter.ViewHolder, position: Int) {
-        holder.binding.titleTxt.text = items[position].title
-        holder.binding.priceTxt.text="$"+items[position].price.toString()
-        holder.binding.subtitleTxt.text = items[position].extra.toString()
+        val item = items[position]
+        holder.binding.titleTxt.text = item.title
+        holder.binding.priceTxt.text="$"+item.price.toString()
+        holder.binding.subtitleTxt.text = item.extra.toString()
 
         Glide.with(context)
-            .load(items[position].picUrl[0])
+            .load(item.picUrl[0])
             .into(holder.binding.pic)
 
+        // Click on item to open detail
+        holder.binding.root.setOnClickListener {
+            val intent = Intent(context, DetailActivity::class.java)
+            val itemJson = Gson().toJson(item)
+            intent.putExtra("item", itemJson)
+            ContextCompat.startActivity(context, intent, null)
+        }
+
+        // Click on add to cart button
         holder.binding.imageView6.setOnClickListener {
-            onAddToCartClick(items[position])
+            onAddToCartClick(item)
         }
 
     }
 
     override fun getItemCount(): Int  = items.size
+
+    fun updateList(newList: MutableList<ItemsModel>) {
+        items.clear()
+        items.addAll(newList)
+        notifyDataSetChanged()
+    }
 }

@@ -6,7 +6,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
 import com.example.coffeeshop.Adapter.ItemListCategoryAdapter
 import com.example.coffeeshop.R
@@ -17,7 +17,7 @@ import android.widget.Toast
 
 class ItemsListActivity : AppCompatActivity() {
     private lateinit var binding: ActivityItemsListBinding
-    private val viewModel = MainViewModel()
+    private lateinit var viewModel: MainViewModel
     private lateinit var cartManager: CartManager
     private var id: String = ""
     private var title: String = ""
@@ -28,6 +28,7 @@ class ItemsListActivity : AppCompatActivity() {
         binding = ActivityItemsListBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        viewModel = ViewModelProvider(this)[MainViewModel::class.java]
         cartManager = CartManager(this)
 
         getBundle()
@@ -39,18 +40,20 @@ class ItemsListActivity : AppCompatActivity() {
     private fun initList() {
         binding.apply {
             progressBar.visibility = View.VISIBLE
-            viewModel.loadItems(id).observe(this@ItemsListActivity, Observer {
-                listView.layoutManager =
-                    GridLayoutManager(this@ItemsListActivity, 2)
-                listView.adapter = ItemListCategoryAdapter(it) { item ->
-                    if (cartManager.addToCart(item)) {
-                        Toast.makeText(this@ItemsListActivity, "${item.title} đã được thêm vào giỏ hàng", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this@ItemsListActivity, "Có lỗi xảy ra", Toast.LENGTH_SHORT).show()
+            viewModel.loadItems(id).observe(this@ItemsListActivity) { items ->
+                if (items != null && items.isNotEmpty()) {
+                    listView.layoutManager =
+                        GridLayoutManager(this@ItemsListActivity, 2)
+                    listView.adapter = ItemListCategoryAdapter(items) { item ->
+                        if (cartManager.addToCart(item)) {
+                            Toast.makeText(this@ItemsListActivity, "${item.title} đã được thêm vào giỏ hàng", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this@ItemsListActivity, "Có lỗi xảy ra", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
                 progressBar.visibility = View.GONE
-            })
+            }
             backBtn.setOnClickListener { finish() }
         }
     }

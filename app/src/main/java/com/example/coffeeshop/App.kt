@@ -1,11 +1,16 @@
 package com.example.coffeeshop
 
 import android.app.Application
+import com.example.coffeeshop.Database.DatabaseHelper
 
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
-        // Database sẽ được tạo tự động khi cần (từ assets hoặc tạo mới)
+        // Khởi tạo database ngay khi app khởi động
+        // Database sẽ được tạo tự động nếu chưa tồn tại
+        val dbHelper = DatabaseHelper(this)
+        // Gọi getReadableDatabase() để đảm bảo database được tạo
+        dbHelper.readableDatabase.close()
     }
 }
 

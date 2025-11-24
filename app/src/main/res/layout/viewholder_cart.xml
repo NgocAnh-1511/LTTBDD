@@ -4,11 +4,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
+    android:layout_marginBottom="16dp"
     android:background="@drawable/white_full_corner_bg"
-    android:padding="12dp">
+    android:padding="16dp">
 
-    <!-- Item Image -->
     <ImageView
         android:id="@+id/itemPic"
         android:layout_width="80dp"
@@ -18,15 +17,11 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:srcCompat="@tools:sample/backgrounds/scenic" />
 
-    <!-- Item Title -->
     <TextView
         android:id="@+id/itemTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="8dp"
-        android:maxLines="2"
-        android:ellipsize="end"
+        android:layout_marginStart="16dp"
         android:text="Item Title"
         android:textColor="@color/darkBrown"
         android:textSize="16sp"
@@ -35,81 +30,61 @@
         app:layout_constraintStart_toEndOf="@+id/itemPic"
         app:layout_constraintTop_toTopOf="@+id/itemPic" />
 
-    <!-- Item Price -->
     <TextView
         android:id="@+id/itemPrice"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="4dp"
-        android:text="$0.00"
+        android:layout_marginTop="8dp"
+        android:text="$0.0"
         android:textColor="@color/orange"
-        android:textSize="16sp"
+        android:textSize="14sp"
         android:textStyle="bold"
-        app:layout_constraintStart_toEndOf="@+id/itemPic"
+        app:layout_constraintStart_toStartOf="@+id/itemTitle"
         app:layout_constraintTop_toBottomOf="@+id/itemTitle" />
 
-    <!-- Remove Button -->
-    <ImageView
-        android:id="@+id/removeBtn"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:padding="8dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/remove"
-        tools:ignore="ContentDescription" />
-
-    <!-- Quantity Controls -->
     <LinearLayout
         android:id="@+id/quantityLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        app:layout_constraintStart_toEndOf="@+id/itemPic"
+        app:layout_constraintStart_toStartOf="@+id/itemTitle"
         app:layout_constraintTop_toBottomOf="@+id/itemPrice">
 
-        <!-- Minus Button -->
         <ImageView
             android:id="@+id/minusBtn"
             android:layout_width="32dp"
             android:layout_height="32dp"
-            android:background="@drawable/white_full_corner_bg"
-            android:clickable="true"
-            android:focusable="true"
+            android:background="@drawable/brown_full_corner_bg"
             android:padding="8dp"
-            app:srcCompat="@drawable/minus"
-            tools:ignore="ContentDescription" />
+            app:srcCompat="@drawable/minus" />
 
-        <!-- Quantity Text -->
         <TextView
             android:id="@+id/quantityTxt"
             android:layout_width="40dp"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="8dp"
+            android:layout_height="32dp"
             android:gravity="center"
             android:text="1"
             android:textColor="@color/darkBrown"
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <!-- Plus Button -->
         <ImageView
             android:id="@+id/plusBtn"
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:background="@drawable/brown_full_corner_bg"
-            android:clickable="true"
-            android:focusable="true"
             android:padding="8dp"
-            app:srcCompat="@drawable/plus"
-            tools:ignore="ContentDescription" />
+            app:srcCompat="@drawable/plus" />
     </LinearLayout>
 
+    <ImageView
+        android:id="@+id/removeBtn"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginEnd="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/remove" />
 </androidx.constraintlayout.widget.ConstraintLayout>
-
 

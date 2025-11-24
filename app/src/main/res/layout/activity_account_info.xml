@@ -58,6 +58,39 @@
                 android:background="@drawable/white_full_corner_bg"
                 android:padding="24dp">
 
+                <!-- Profile Avatar -->
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="24dp">
+
+                    <ImageView
+                        android:id="@+id/ivProfileAvatar"
+                        android:layout_width="100dp"
+                        android:layout_height="100dp"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/profile"
+                        android:background="@drawable/profile_circle_bg"
+                        android:contentDescription="Ảnh đại diện"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                    <ImageView
+                        android:id="@+id/ivCameraIcon"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="bottom|end"
+                        android:layout_marginEnd="4dp"
+                        android:layout_marginBottom="4dp"
+                        android:src="@drawable/ic_camera"
+                        android:background="@drawable/brown_full_corner_bg"
+                        android:padding="6dp"
+                        android:contentDescription="Đổi ảnh đại diện"
+                        android:clickable="true"
+                        android:focusable="true" />
+                </FrameLayout>
+
                 <!-- Full Name -->
                 <TextView
                     android:layout_width="wrap_content"
@@ -74,7 +107,11 @@
                     android:text="Nguyễn Văn A"
                     android:textColor="@color/darkBrown"
                     android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground"
+                    android:padding="8dp" />
 
                 <View
                     android:layout_width="match_parent"
@@ -124,7 +161,11 @@
                     android:text="example@email.com"
                     android:textColor="@color/darkBrown"
                     android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground"
+                    android:padding="8dp" />
 
                 <View
                     android:layout_width="match_parent"

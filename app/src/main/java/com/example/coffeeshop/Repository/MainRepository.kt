@@ -107,5 +107,24 @@ class MainRepository {
         return itemsLiveData
     }
 
+    fun loadNews(): LiveData<MutableList<com.example.coffeeshop.Domain.NewsModel>> {
+        val listData = MutableLiveData<MutableList<com.example.coffeeshop.Domain.NewsModel>>()
+        val ref = firebaseDatabase.getReference("News")
+        ref.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val list = mutableListOf<com.example.coffeeshop.Domain.NewsModel>()
+                for (childSnapshot in snapshot.children) {
+                    val item = childSnapshot.getValue(com.example.coffeeshop.Domain.NewsModel::class.java)
+                    item?.let { list.add(it) }
+                }
+                listData.value = list
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // Handle error silently or log it
+            }
+        })
+        return listData
+    }
 
 }
