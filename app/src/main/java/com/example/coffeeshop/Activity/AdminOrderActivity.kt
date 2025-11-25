@@ -98,7 +98,8 @@ class AdminOrderActivity : AppCompatActivity() {
             .setTitle("Duyệt đơn hàng")
             .setMessage("Bạn có chắc chắn muốn duyệt đơn hàng này?")
             .setPositiveButton("Duyệt") { _, _ ->
-                if (orderManager.updateOrderStatus(order.orderId, "Processing")) {
+                // Set status thành "Completed" để tính vào doanh thu
+                if (orderManager.updateOrderStatus(order.orderId, "Completed")) {
                     Toast.makeText(this, "Đã duyệt đơn hàng", Toast.LENGTH_SHORT).show()
                     loadOrders()
                 } else {

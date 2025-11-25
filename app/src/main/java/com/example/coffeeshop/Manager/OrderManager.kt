@@ -110,7 +110,7 @@ class OrderManager(private val context: Context) {
                     items = items,
                     totalPrice = cursor.getDouble(totalPriceIndex),
                     orderDate = cursor.getLong(orderDateIndex),
-                    status = cursor.getString(statusIndex) ?: "Pending",
+                    status = (cursor.getString(statusIndex) ?: "Pending").trim(),
                     deliveryAddress = if (!cursor.isNull(deliveryAddressIndex)) cursor.getString(deliveryAddressIndex) ?: "" else "",
                     phoneNumber = if (!cursor.isNull(phoneIndex)) cursor.getString(phoneIndex) ?: "" else "",
                     customerName = if (!cursor.isNull(customerNameIndex)) cursor.getString(customerNameIndex) ?: "" else "",
@@ -162,7 +162,7 @@ class OrderManager(private val context: Context) {
                     items = items,
                     totalPrice = cursor.getDouble(totalPriceIndex),
                     orderDate = cursor.getLong(orderDateIndex),
-                    status = cursor.getString(statusIndex) ?: "Pending",
+                    status = (cursor.getString(statusIndex) ?: "Pending").trim(),
                     deliveryAddress = if (!cursor.isNull(deliveryAddressIndex)) cursor.getString(deliveryAddressIndex) ?: "" else "",
                     phoneNumber = if (!cursor.isNull(phoneIndex)) cursor.getString(phoneIndex) ?: "" else "",
                     customerName = if (!cursor.isNull(customerNameIndex)) cursor.getString(customerNameIndex) ?: "" else "",
@@ -182,10 +182,16 @@ class OrderManager(private val context: Context) {
 
     fun updateOrderStatus(orderId: String, status: String): Boolean {
         val db = getWritableDatabase()
+        val statusTrimmed = status.trim()
+        
+        android.util.Log.d("OrderManager", "Updating order $orderId status to: '$statusTrimmed'")
         
         // First, get the order to find its user_id
         val order = getOrderById(orderId)
-        if (order == null) return false
+        if (order == null) {
+            android.util.Log.e("OrderManager", "Order not found: $orderId")
+            return false
+        }
         
         // Get user_id from the order in database
         val cursor = db.query(
@@ -207,7 +213,7 @@ class OrderManager(private val context: Context) {
         }
         
         val values = ContentValues().apply {
-            put(DatabaseHelper.COL_STATUS, status)
+            put(DatabaseHelper.COL_STATUS, statusTrimmed)
         }
         val result = db.update(
             DatabaseHelper.TABLE_ORDERS,
@@ -215,6 +221,14 @@ class OrderManager(private val context: Context) {
             "${DatabaseHelper.COL_ORDER_ID} = ?",
             arrayOf(orderId)
         ) > 0
+        
+        android.util.Log.d("OrderManager", "Update result: $result, user_id: $orderUserId")
+        
+        // Verify the update
+        if (result) {
+            val updatedOrder = getOrderById(orderId)
+            android.util.Log.d("OrderManager", "Verified order status after update: '${updatedOrder?.status}'")
+        }
         
         // Sync to Firebase - sync the order owner's data
         if (result && orderUserId != null) {
@@ -265,7 +279,7 @@ class OrderManager(private val context: Context) {
                     items = items,
                     totalPrice = cursor.getDouble(totalPriceIndex),
                     orderDate = cursor.getLong(orderDateIndex),
-                    status = cursor.getString(statusIndex) ?: "Pending",
+                    status = (cursor.getString(statusIndex) ?: "Pending").trim(),
                     deliveryAddress = if (!cursor.isNull(deliveryAddressIndex)) cursor.getString(deliveryAddressIndex) ?: "" else "",
                     phoneNumber = if (!cursor.isNull(phoneIndex)) cursor.getString(phoneIndex) ?: "" else "",
                     customerName = if (!cursor.isNull(customerNameIndex)) cursor.getString(customerNameIndex) ?: "" else "",

@@ -1,5 +1,6 @@
 package com.example.coffeeshop.Domain
 
+import com.example.coffeeshop.Utils.formatVND
 import java.io.Serializable
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -10,7 +11,8 @@ data class RevenueReportModel(
     var dateLabel: String = "", // Label hiển thị (VD: "01/12/2024", "Tháng 12/2024")
     var totalRevenue: Double = 0.0,
     var orderCount: Int = 0,
-    var reportType: ReportType = ReportType.DAILY // DAILY, MONTHLY, YEARLY
+    var reportType: ReportType = ReportType.DAILY, // DAILY, MONTHLY, YEARLY
+    var orders: MutableList<OrderModel> = mutableListOf() // Danh sách đơn hàng trong ngày/tháng/năm
 ) : Serializable {
     
     enum class ReportType {
@@ -20,7 +22,7 @@ data class RevenueReportModel(
     }
     
     fun getFormattedRevenue(): String {
-        return "$${String.format(Locale.getDefault(), "%.2f", totalRevenue)}"
+        return formatVND(totalRevenue)
     }
     
     fun getFormattedDate(): String {

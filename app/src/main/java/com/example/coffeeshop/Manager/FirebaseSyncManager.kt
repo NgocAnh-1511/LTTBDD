@@ -275,31 +275,41 @@ class FirebaseSyncManager(private val context: Context) {
                 snapshot.children.forEach { child ->
                     try {
                         val orderId = child.child("orderId").getValue(String::class.java) ?: return@forEach
+                        val itemsJson = child.child("items").getValue(String::class.java) ?: ""
+                        val totalPrice = child.child("totalPrice").getValue(Double::class.java) ?: 0.0
+                        val orderDate = child.child("orderDate").getValue(Long::class.java) ?: System.currentTimeMillis()
+                        val status = child.child("status").getValue(String::class.java) ?: "Pending"
+                        val deliveryAddress = child.child("deliveryAddress").getValue(String::class.java) ?: ""
+                        val phoneNumber = child.child("phoneNumber").getValue(String::class.java) ?: ""
+                        val customerName = child.child("customerName").getValue(String::class.java) ?: ""
+                        val paymentMethod = child.child("paymentMethod").getValue(String::class.java) ?: "Tiền mặt"
+                        
+                        val values = android.content.ContentValues().apply {
+                            put(DatabaseHelper.COL_ORDER_ID, orderId)
+                            put(DatabaseHelper.COL_ORDER_USER_ID, userId)
+                            put(DatabaseHelper.COL_ITEMS_JSON, itemsJson)
+                            put(DatabaseHelper.COL_TOTAL_PRICE, totalPrice)
+                            put(DatabaseHelper.COL_ORDER_DATE, orderDate)
+                            put(DatabaseHelper.COL_STATUS, status)
+                            put(DatabaseHelper.COL_DELIVERY_ADDRESS, deliveryAddress)
+                            put(DatabaseHelper.COL_ORDER_PHONE, phoneNumber)
+                            put(DatabaseHelper.COL_CUSTOMER_NAME, customerName)
+                            put(DatabaseHelper.COL_PAYMENT_METHOD, paymentMethod)
+                        }
                         
                         // Kiểm tra xem order đã tồn tại chưa
-                        if (orderManager.getOrderById(orderId) == null) {
-                            val itemsJson = child.child("items").getValue(String::class.java) ?: ""
-                            val totalPrice = child.child("totalPrice").getValue(Double::class.java) ?: 0.0
-                            val orderDate = child.child("orderDate").getValue(Long::class.java) ?: System.currentTimeMillis()
-                            val status = child.child("status").getValue(String::class.java) ?: "Pending"
-                            val deliveryAddress = child.child("deliveryAddress").getValue(String::class.java) ?: ""
-                            val phoneNumber = child.child("phoneNumber").getValue(String::class.java) ?: ""
-                            val customerName = child.child("customerName").getValue(String::class.java) ?: ""
-                            val paymentMethod = child.child("paymentMethod").getValue(String::class.java) ?: "Tiền mặt"
-                            
-                            val values = android.content.ContentValues().apply {
-                                put(DatabaseHelper.COL_ORDER_ID, orderId)
-                                put(DatabaseHelper.COL_ORDER_USER_ID, userId)
-                                put(DatabaseHelper.COL_ITEMS_JSON, itemsJson)
-                                put(DatabaseHelper.COL_TOTAL_PRICE, totalPrice)
-                                put(DatabaseHelper.COL_ORDER_DATE, orderDate)
-                                put(DatabaseHelper.COL_STATUS, status)
-                                put(DatabaseHelper.COL_DELIVERY_ADDRESS, deliveryAddress)
-                                put(DatabaseHelper.COL_ORDER_PHONE, phoneNumber)
-                                put(DatabaseHelper.COL_CUSTOMER_NAME, customerName)
-                                put(DatabaseHelper.COL_PAYMENT_METHOD, paymentMethod)
-                            }
+                        val existingOrder = orderManager.getOrderById(orderId)
+                        if (existingOrder == null) {
+                            // Thêm mới
                             db.insert(DatabaseHelper.TABLE_ORDERS, null, values)
+                        } else {
+                            // Cập nhật status và các thông tin khác
+                            db.update(
+                                DatabaseHelper.TABLE_ORDERS,
+                                values,
+                                "${DatabaseHelper.COL_ORDER_ID} = ?",
+                                arrayOf(orderId)
+                            )
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error parsing order", e)

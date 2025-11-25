@@ -13,7 +13,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.coffeeshop.Adapter.OrderAdapter
 import com.example.coffeeshop.Domain.OrderModel
+import com.example.coffeeshop.Manager.FirebaseSyncManager
 import com.example.coffeeshop.Manager.OrderManager
+import com.example.coffeeshop.Manager.UserManager
 import com.example.coffeeshop.R
 import com.example.coffeeshop.Utils.dpToPx
 import com.example.coffeeshop.databinding.ActivityOrderBinding
@@ -23,6 +25,8 @@ class OrderActivity : AppCompatActivity() {
     private lateinit var binding: ActivityOrderBinding
     private lateinit var orderManager: OrderManager
     private lateinit var orderAdapter: OrderAdapter
+    private lateinit var userManager: UserManager
+    private lateinit var syncManager: FirebaseSyncManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,6 +44,8 @@ class OrderActivity : AppCompatActivity() {
         }
 
         orderManager = OrderManager(this)
+        userManager = UserManager(this)
+        syncManager = FirebaseSyncManager(this)
 
         setupRecyclerView()
         setupClickListeners()
@@ -110,7 +116,16 @@ class OrderActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        loadOrders()
+        // Đồng bộ từ Firebase trước khi load orders để có dữ liệu mới nhất
+        val currentUser = userManager.getCurrentUser()
+        if (currentUser != null) {
+            syncManager.syncAllDataFromFirebaseAsync(currentUser.userId) { success ->
+                // Sau khi sync xong, load lại orders
+                loadOrders()
+            }
+        } else {
+            loadOrders()
+        }
     }
 }
 
