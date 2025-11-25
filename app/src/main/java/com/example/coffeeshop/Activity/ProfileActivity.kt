@@ -2,6 +2,7 @@ package com.example.coffeeshop.Activity
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -179,6 +180,24 @@ class ProfileActivity : AppCompatActivity() {
         binding.wishlistBtnInProfile.setOnClickListener {
             val intent = Intent(this, WishlistActivity::class.java)
             startActivity(intent)
+        }
+
+        // Chỉ hiển thị nút admin nếu user là admin
+        if (userManager.isAdmin()) {
+            binding.adminOrderBtn.visibility = View.VISIBLE
+            binding.adminOrderBtn.setOnClickListener {
+                val intent = Intent(this, AdminOrderActivity::class.java)
+                startActivity(intent)
+            }
+            
+            binding.revenueReportBtn.visibility = View.VISIBLE
+            binding.revenueReportBtn.setOnClickListener {
+                val intent = Intent(this, RevenueReportActivity::class.java)
+                startActivity(intent)
+            }
+        } else {
+            binding.adminOrderBtn.visibility = View.GONE
+            binding.revenueReportBtn.visibility = View.GONE
         }
 
         binding.logoutBtn.setOnClickListener {

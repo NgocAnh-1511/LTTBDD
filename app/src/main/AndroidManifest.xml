@@ -92,6 +92,14 @@
             android:name=".Activity.OrderDrinkActivity"
             android:exported="false" >
         </activity>
+        <activity
+            android:name=".Activity.AdminOrderActivity"
+            android:exported="false" >
+        </activity>
+        <activity
+            android:name=".Activity.RevenueReportActivity"
+            android:exported="false" >
+        </activity>
     </application>
 
 </manifest>

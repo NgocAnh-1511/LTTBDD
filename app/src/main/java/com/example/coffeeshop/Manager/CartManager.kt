@@ -12,6 +12,7 @@ class CartManager(private val context: Context) {
     private val dbHelper = DatabaseHelper(context)
     private val gson = Gson()
     private val userManager = UserManager(context)
+    private val syncManager = FirebaseSyncManager(context)
     
     // Giỏ hàng tạm trong memory khi chưa đăng nhập
     private val tempCart: MutableList<CartModel> = mutableListOf()
@@ -66,12 +67,16 @@ class CartManager(private val context: Context) {
             val values = ContentValues().apply {
                 put(DatabaseHelper.COL_QUANTITY, currentQuantity + 1)
             }
-            db.update(
+            val result = db.update(
                 DatabaseHelper.TABLE_CART,
                 values,
                 "${DatabaseHelper.COL_CART_ID} = ?",
                 arrayOf(id.toString())
             ) > 0
+            if (result) {
+                syncManager.syncAllDataToFirebaseAsync(userId)
+            }
+            result
         } else {
             // Nếu chưa có, thêm mới
             cursor.close()
@@ -82,7 +87,11 @@ class CartManager(private val context: Context) {
                 put(DatabaseHelper.COL_ITEM_JSON, itemJson)
                 put(DatabaseHelper.COL_QUANTITY, 1)
             }
-            db.insert(DatabaseHelper.TABLE_CART, null, values) != -1L
+            val result = db.insert(DatabaseHelper.TABLE_CART, null, values) != -1L
+            if (result) {
+                syncManager.syncAllDataToFirebaseAsync(userId)
+            }
+            result
         }
     }
 
@@ -96,11 +105,15 @@ class CartManager(private val context: Context) {
         // Nếu đã đăng nhập, xóa khỏi database
         val userId = getCurrentUserId() ?: return false
         val db = getWritableDatabase()
-        return db.delete(
+        val result = db.delete(
             DatabaseHelper.TABLE_CART,
             "${DatabaseHelper.COL_CART_USER_ID} = ? AND ${DatabaseHelper.COL_ITEM_TITLE} = ?",
             arrayOf(userId, itemTitle)
         ) > 0
+        if (result) {
+            syncManager.syncAllDataToFirebaseAsync(userId)
+        }
+        return result
     }
 
     fun updateQuantity(itemTitle: String, quantity: Int): Boolean {
@@ -124,12 +137,16 @@ class CartManager(private val context: Context) {
         val values = ContentValues().apply {
             put(DatabaseHelper.COL_QUANTITY, quantity)
         }
-        return db.update(
+        val result = db.update(
             DatabaseHelper.TABLE_CART,
             values,
             "${DatabaseHelper.COL_CART_USER_ID} = ? AND ${DatabaseHelper.COL_ITEM_TITLE} = ?",
             arrayOf(userId, itemTitle)
         ) > 0
+        if (result) {
+            syncManager.syncAllDataToFirebaseAsync(userId)
+        }
+        return result
     }
 
     fun getCartList(): MutableList<CartModel> {
@@ -213,11 +230,15 @@ class CartManager(private val context: Context) {
         // Nếu đã đăng nhập, xóa database
         val userId = getCurrentUserId() ?: return false
         val db = getWritableDatabase()
-        return db.delete(
+        val result = db.delete(
             DatabaseHelper.TABLE_CART,
             "${DatabaseHelper.COL_CART_USER_ID} = ?",
             arrayOf(userId)
         ) >= 0
+        if (result) {
+            syncManager.syncAllDataToFirebaseAsync(userId)
+        }
+        return result
     }
     
     /**
@@ -272,6 +293,7 @@ class CartManager(private val context: Context) {
         // Xóa giỏ hàng tạm sau khi chuyển
         if (success) {
             tempCart.clear()
+            syncManager.syncAllDataToFirebaseAsync(userId)
         }
         
         return success

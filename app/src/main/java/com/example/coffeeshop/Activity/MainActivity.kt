@@ -238,10 +238,31 @@ class MainActivity : AppCompatActivity() {
 
     private fun initBestSeller() {
         viewModel.loadPopular().observe(this) { items ->
+            android.util.Log.d("MainActivity", "Best Seller - Received ${items?.size ?: 0} items")
             if (items != null && items.isNotEmpty()) {
                 // Filter items with rating >= 4.5 for best seller
-                val bestSellers = items.filter { it.rating >= 4.5 }.toMutableList()
+                var bestSellers = items.filter { it.rating >= 4.5 }.toMutableList()
+                android.util.Log.d("MainActivity", "Best Seller - Items with rating >= 4.5: ${bestSellers.size}")
+                
+                // Nếu không có items nào có rating >= 4.5, lấy top items theo rating
+                if (bestSellers.isEmpty()) {
+                    // Sắp xếp theo rating giảm dần và lấy top 5
+                    bestSellers = items.sortedByDescending { it.rating }
+                        .take(5)
+                        .toMutableList()
+                    android.util.Log.d("MainActivity", "Best Seller - Using top 5 by rating: ${bestSellers.size}")
+                }
+                
+                // Nếu vẫn không có, hiển thị tất cả items (có thể dữ liệu chưa có rating)
+                if (bestSellers.isEmpty()) {
+                    bestSellers = items.toMutableList()
+                    android.util.Log.d("MainActivity", "Best Seller - Using all items: ${bestSellers.size}")
+                }
+                
                 bestSellerAdapter.updateList(bestSellers)
+                android.util.Log.d("MainActivity", "Best Seller - Updated adapter with ${bestSellers.size} items")
+            } else {
+                android.util.Log.w("MainActivity", "Best Seller - No items received or empty list")
             }
         }
     }

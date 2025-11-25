@@ -341,6 +341,89 @@
                         android:layout_marginVertical="4dp" />
 
                     <LinearLayout
+                        android:id="@+id/adminOrderBtn"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="12dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?attr/selectableItemBackground">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/btn_4"
+                            android:layout_marginEnd="16dp"
+                            app:tint="@color/orange" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Quản lý đơn hàng (Admin)"
+                            android:textColor="@color/orange"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:src="@drawable/back"
+                            android:rotation="180"
+                            app:tint="@color/orange" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/lightCream"
+                        android:layout_marginVertical="4dp" />
+
+                    <LinearLayout
+                        android:id="@+id/revenueReportBtn"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="12dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?attr/selectableItemBackground"
+                        android:visibility="gone">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/btn_4"
+                            android:layout_marginEnd="16dp"
+                            app:tint="@color/orange" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Báo cáo doanh thu"
+                            android:textColor="@color/orange"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:src="@drawable/back"
+                            android:rotation="180"
+                            app:tint="@color/orange" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/lightCream"
+                        android:layout_marginVertical="4dp" />
+
+                    <LinearLayout
                         android:id="@+id/logoutBtn"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

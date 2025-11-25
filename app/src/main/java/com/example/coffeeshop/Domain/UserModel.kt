@@ -7,6 +7,7 @@ data class UserModel(
     var email: String = "",
     var password: String = "",
     var avatarPath: String = "", // Đường dẫn đến ảnh đại diện
-    var createdAt: Long = System.currentTimeMillis()
+    var createdAt: Long = System.currentTimeMillis(),
+    var isAdmin: Boolean = false // Quyền admin
 )
 

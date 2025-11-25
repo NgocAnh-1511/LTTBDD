@@ -12,7 +12,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
 ) {
     companion object {
         private const val DATABASE_NAME = "CoffeeShopDB"
-        private const val DATABASE_VERSION = 4  // Tăng version để thêm cột avatar_path
+        private const val DATABASE_VERSION = 5  // Tăng version để thêm cột is_admin
 
         // Table Users
         const val TABLE_USERS = "users"
@@ -25,6 +25,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         const val COL_CREATED_AT = "created_at"
         const val COL_IS_LOGGED_IN = "is_logged_in"
         const val COL_AUTH_TOKEN = "auth_token"
+        const val COL_IS_ADMIN = "is_admin"
 
         // Table Cart
         const val TABLE_CART = "cart"
@@ -76,7 +77,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
                 $COL_AVATAR_PATH TEXT,
                 $COL_CREATED_AT INTEGER NOT NULL,
                 $COL_IS_LOGGED_IN INTEGER DEFAULT 0,
-                $COL_AUTH_TOKEN TEXT
+                $COL_AUTH_TOKEN TEXT,
+                $COL_IS_ADMIN INTEGER DEFAULT 0
             )
         """.trimIndent()
 
@@ -139,12 +141,24 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_USERS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_CART")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_ORDERS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_ADDRESSES")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_WISHLIST")
-        onCreate(db)
+        if (oldVersion < 5) {
+            // Thêm cột is_admin nếu chưa có
+            try {
+                db.execSQL("ALTER TABLE $TABLE_USERS ADD COLUMN $COL_IS_ADMIN INTEGER DEFAULT 0")
+            } catch (e: Exception) {
+                // Cột đã tồn tại hoặc có lỗi, bỏ qua
+            }
+        }
+        
+        // Nếu version quá cũ, drop và tạo lại
+        if (oldVersion < 4) {
+            db.execSQL("DROP TABLE IF EXISTS $TABLE_USERS")
+            db.execSQL("DROP TABLE IF EXISTS $TABLE_CART")
+            db.execSQL("DROP TABLE IF EXISTS $TABLE_ORDERS")
+            db.execSQL("DROP TABLE IF EXISTS $TABLE_ADDRESSES")
+            db.execSQL("DROP TABLE IF EXISTS $TABLE_WISHLIST")
+            onCreate(db)
+        }
     }
 }
 
