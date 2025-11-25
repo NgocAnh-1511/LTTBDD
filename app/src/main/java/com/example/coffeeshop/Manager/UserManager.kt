@@ -9,6 +9,7 @@ import com.example.coffeeshop.Domain.UserModel
 class UserManager(private val context: Context) {
     private val dbHelper = DatabaseHelper(context)
     private val gson = com.google.gson.Gson()
+    private val syncManager = FirebaseSyncManager(context)
 
     private fun getWritableDatabase(): SQLiteDatabase {
         return dbHelper.writableDatabase
@@ -53,6 +54,9 @@ class UserManager(private val context: Context) {
             db.insert(DatabaseHelper.TABLE_USERS, null, values)
         }
         cursor.close()
+        
+        // Đồng bộ lên Firebase (chạy trên background thread)
+        syncManager.syncAllDataToFirebaseAsync(user.userId)
     }
 
     fun getCurrentUser(): UserModel? {
@@ -191,6 +195,7 @@ class UserManager(private val context: Context) {
 
     /**
      * Kiểm tra xem số điện thoại đã tồn tại trong database chưa
+     * Kiểm tra cả SQLite và Firebase
      */
     fun isPhoneNumberExists(phoneNumber: String): Boolean {
         val db = getReadableDatabase()
@@ -204,6 +209,15 @@ class UserManager(private val context: Context) {
         val exists = cursor.moveToFirst()
         cursor.close()
         return exists
+    }
+    
+    /**
+     * Kiểm tra số điện thoại trên Firebase (async)
+     */
+    fun isPhoneNumberExistsInFirebase(phoneNumber: String, onComplete: (Boolean) -> Unit) {
+        syncManager.findUserByPhoneNumberAsync(phoneNumber) { user ->
+            onComplete(user != null)
+        }
     }
 
     /**
@@ -233,14 +247,32 @@ class UserManager(private val context: Context) {
         }
 
         val result = db.insert(DatabaseHelper.TABLE_USERS, null, values)
+        
+        // Đồng bộ lên Firebase sau khi đăng ký
+        if (result != -1L) {
+            val user = UserModel(
+                userId = userId,
+                phoneNumber = phoneNumber,
+                fullName = "",
+                email = "",
+                password = password,
+                avatarPath = "",
+                createdAt = System.currentTimeMillis()
+            )
+            // Đồng bộ user và tất cả dữ liệu lên Firebase
+            syncManager.syncAllDataToFirebaseAsync(userId)
+        }
+        
         return result != -1L
     }
 
     /**
      * Đăng nhập - kiểm tra phone number và password trong database
+     * Nếu không tìm thấy trong SQLite, tìm trên Firebase
      * @return UserModel nếu đăng nhập thành công, null nếu thông tin không đúng
      */
     fun login(phoneNumber: String, password: String): UserModel? {
+        // Đầu tiên, tìm trong SQLite
         val db = getReadableDatabase()
         val cursor = db.query(
             DatabaseHelper.TABLE_USERS,
@@ -252,6 +284,7 @@ class UserManager(private val context: Context) {
 
         return try {
             if (cursor.moveToFirst()) {
+                // Tìm thấy trong SQLite
                 val userIdIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_USER_ID)
                 val phoneIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PHONE_NUMBER)
                 val fullNameIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_FULL_NAME)
@@ -274,14 +307,72 @@ class UserManager(private val context: Context) {
                 // Set logged in status
                 setLoggedInStatus(user.userId, true)
                 
+                // Đồng bộ từ Firebase về SQLite (để có dữ liệu mới nhất)
+                syncManager.syncAllDataFromFirebaseAsync(user.userId)
+                
                 user
             } else {
                 cursor.close()
+                // Không tìm thấy trong SQLite, tìm trên Firebase
                 null
             }
         } catch (e: Exception) {
             cursor.close()
             null
+        }
+    }
+    
+    /**
+     * Đăng nhập từ Firebase (được gọi khi không tìm thấy trong SQLite)
+     */
+    fun loginFromFirebase(phoneNumber: String, password: String, onComplete: (UserModel?) -> Unit) {
+        val trimmedPhone = phoneNumber.trim()
+        val trimmedPassword = password.trim()
+        
+        android.util.Log.d("UserManager", "=== Attempting login from Firebase ===")
+        android.util.Log.d("UserManager", "Phone: '$trimmedPhone' (length: ${trimmedPhone.length})")
+        android.util.Log.d("UserManager", "Password: '${trimmedPassword.take(3)}...' (length: ${trimmedPassword.length})")
+        
+        syncManager.findUserByPhoneNumberAsync(trimmedPhone) { user ->
+            if (user != null) {
+                android.util.Log.d("UserManager", "✓ User found in Firebase")
+                android.util.Log.d("UserManager", "  - userId: ${user.userId}")
+                android.util.Log.d("UserManager", "  - phoneNumber: '${user.phoneNumber}'")
+                android.util.Log.d("UserManager", "  - password from DB: '${user.password.take(3)}...' (length: ${user.password.length})")
+                android.util.Log.d("UserManager", "  - password input: '${trimmedPassword.take(3)}...' (length: ${trimmedPassword.length})")
+                
+                // So sánh password (trim cả hai để đảm bảo chính xác)
+                val dbPassword = user.password.trim()
+                val inputPassword = trimmedPassword
+                val passwordMatch = dbPassword == inputPassword
+                
+                android.util.Log.d("UserManager", "Password comparison:")
+                android.util.Log.d("UserManager", "  - DB password: '$dbPassword'")
+                android.util.Log.d("UserManager", "  - Input password: '$inputPassword'")
+                android.util.Log.d("UserManager", "  - Match: $passwordMatch")
+                
+                if (passwordMatch) {
+                    android.util.Log.d("UserManager", "✓ Password matches! Saving user to SQLite...")
+                    // Lưu vào SQLite
+                    saveUser(user)
+                    // Set logged in status
+                    setLoggedInStatus(user.userId, true)
+                    // Đồng bộ tất cả dữ liệu từ Firebase về SQLite
+                    syncManager.syncAllDataFromFirebaseAsync(user.userId) { success ->
+                        android.util.Log.d("UserManager", "Data synced from Firebase: $success")
+                    }
+                    android.util.Log.d("UserManager", "=== Login from Firebase successful! ===")
+                    onComplete(user)
+                } else {
+                    android.util.Log.w("UserManager", "✗ Password mismatch!")
+                    android.util.Log.w("UserManager", "  - DB: '$dbPassword' (${dbPassword.length} chars)")
+                    android.util.Log.w("UserManager", "  - Input: '$inputPassword' (${inputPassword.length} chars)")
+                    onComplete(null)
+                }
+            } else {
+                android.util.Log.w("UserManager", "✗ User not found in Firebase for phone: '$trimmedPhone'")
+                onComplete(null)
+            }
         }
     }
 

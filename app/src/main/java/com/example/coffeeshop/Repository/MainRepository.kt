@@ -71,11 +71,13 @@ class MainRepository {
                     val item = childSnapshot.getValue(ItemsModel::class.java)
                     item?.let { list.add(it) }
                 }
+                android.util.Log.d("MainRepository", "Loaded ${list.size} popular items")
                 listData.value = list
             }
 
             override fun onCancelled(error: DatabaseError) {
-                // Handle error silently or log it
+                android.util.Log.e("MainRepository", "Error loading Popular: ${error.message}")
+                listData.value = mutableListOf()
             }
 
 

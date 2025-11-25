@@ -123,7 +123,33 @@ class LoginActivity : AppCompatActivity() {
                 startActivity(intent)
                 finish()
             } else {
-                Toast.makeText(this, "Số điện thoại hoặc mật khẩu không đúng!", Toast.LENGTH_SHORT).show()
+                // Không tìm thấy trong SQLite, thử tìm trên Firebase ngay lập tức
+                binding.btnLogin.isEnabled = false
+                Toast.makeText(this, "Đang kiểm tra trên server...", Toast.LENGTH_SHORT).show()
+                userManager.loginFromFirebase(phoneNumber, password) { firebaseUser ->
+                    runOnUiThread {
+                        binding.btnLogin.isEnabled = true
+                        if (firebaseUser != null) {
+                            // Chuyển giỏ hàng tạm vào database
+                            val cartManager = com.example.coffeeshop.Manager.CartManager(this)
+                            cartManager.migrateTempCartToDatabase(firebaseUser.userId)
+                            
+                            Toast.makeText(this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show()
+                            
+                            // Kiểm tra xem có cần redirect đến CheckoutActivity không
+                            val redirectToCheckout = intent.getBooleanExtra("redirectToCheckout", false)
+                            val intent = if (redirectToCheckout) {
+                                Intent(this, CheckoutActivity::class.java)
+                            } else {
+                                Intent(this, MainActivity::class.java)
+                            }
+                            startActivity(intent)
+                            finish()
+                        } else {
+                            Toast.makeText(this, "Số điện thoại hoặc mật khẩu không đúng!", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             }
         }
 
@@ -167,7 +193,7 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Kiểm tra số điện thoại đã tồn tại chưa
+            // Kiểm tra số điện thoại đã tồn tại chưa (trong SQLite)
             if (userManager.isPhoneNumberExists(phoneNumber)) {
                 Toast.makeText(this, "Số điện thoại này đã được đăng ký!", Toast.LENGTH_SHORT).show()
                 binding.etPhone.error = "Số điện thoại đã tồn tại"
@@ -175,18 +201,35 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Đăng ký user mới (không tự động đăng nhập)
-            val success = userManager.registerUser(phoneNumber, password, autoLogin = false)
-            if (success) {
-                Toast.makeText(this, "Đăng ký thành công! Vui lòng đăng nhập.", Toast.LENGTH_SHORT).show()
-                
-                // Chuyển về form đăng nhập
-                showLoginForm()
-                // Giữ lại số điện thoại đã nhập
-                binding.etPhone.setText(phoneNumber)
-                binding.etPassword.setText("")
-            } else {
-                Toast.makeText(this, "Đăng ký thất bại. Vui lòng thử lại!", Toast.LENGTH_SHORT).show()
+            // Kiểm tra trên Firebase (async)
+            binding.btnContinue.isEnabled = false
+            binding.btnContinue.text = "Đang kiểm tra..."
+            userManager.isPhoneNumberExistsInFirebase(phoneNumber) { exists ->
+                runOnUiThread {
+                    binding.btnContinue.isEnabled = true
+                    binding.btnContinue.text = "Tiếp tục"
+                    
+                    if (exists) {
+                        Toast.makeText(this, "Số điện thoại này đã được đăng ký!", Toast.LENGTH_SHORT).show()
+                        binding.etPhone.error = "Số điện thoại đã tồn tại"
+                        binding.etPhone.requestFocus()
+                        return@runOnUiThread
+                    }
+
+                    // Đăng ký user mới (không tự động đăng nhập)
+                    val success = userManager.registerUser(phoneNumber, password, autoLogin = false)
+                    if (success) {
+                        Toast.makeText(this, "Đăng ký thành công! Vui lòng đăng nhập.", Toast.LENGTH_SHORT).show()
+                        
+                        // Chuyển về form đăng nhập
+                        showLoginForm()
+                        // Giữ lại số điện thoại đã nhập
+                        binding.etPhone.setText(phoneNumber)
+                        binding.etPassword.setText("")
+                    } else {
+                        Toast.makeText(this, "Đăng ký thất bại. Vui lòng thử lại!", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
 
