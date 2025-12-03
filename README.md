@@ -49,7 +49,7 @@
 - **UI**: XML Layouts + View Binding + ConstraintLayout
 - **Android Jetpack**:
   - ViewModel + LiveData
-  - Room Database
+  - SQLite
   - Navigation Component
 - **Hình ảnh**: Glide
 - **Bất đồng bộ**: Kotlin Coroutines
