@@ -10,11 +10,12 @@ export class CategoriesService {
   constructor(
     @InjectRepository(Category)
     private categoryRepository: Repository<Category>,
-  ) {}
+  ) { }
 
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
     const category = this.categoryRepository.create(createCategoryDto);
-    return this.categoryRepository.save(category);
+    const savedCategory = await this.categoryRepository.save(category);
+    return savedCategory;
   }
 
   async findAll(): Promise<Category[]> {
@@ -36,7 +37,8 @@ export class CategoriesService {
   async update(id: number, updateCategoryDto: UpdateCategoryDto): Promise<Category> {
     const category = await this.findOne(id);
     Object.assign(category, updateCategoryDto);
-    return this.categoryRepository.save(category);
+    const updatedCategory = await this.categoryRepository.save(category);
+    return updatedCategory;
   }
 
   async remove(id: number): Promise<void> {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
@@ -7,14 +7,18 @@ import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
-  ) {}
+  ) { }
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
     const product = this.productRepository.create(createProductDto);
-    return this.productRepository.save(product);
+    const savedProduct = await this.productRepository.save(product);
+    this.logger.log(`Product ${savedProduct.id} created successfully`);
+    return savedProduct;
   }
 
   async findAll(): Promise<Product[]> {
@@ -35,15 +39,26 @@ export class ProductsService {
     return product;
   }
 
+  async findByCategory(categoryId: number): Promise<Product[]> {
+    return this.productRepository.find({
+      where: { categoryId },
+      relations: ['category'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async update(id: number, updateProductDto: UpdateProductDto): Promise<Product> {
     const product = await this.findOne(id);
     Object.assign(product, updateProductDto);
-    return this.productRepository.save(product);
+    const updatedProduct = await this.productRepository.save(product);
+    this.logger.log(`Product ${updatedProduct.id} updated successfully (price: ${updatedProduct.price})`);
+    return updatedProduct;
   }
 
   async remove(id: number): Promise<void> {
     const product = await this.findOne(id);
     await this.productRepository.remove(product);
+    this.logger.log(`Product ${id} deleted successfully`);
   }
 }
 

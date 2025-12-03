@@ -21,8 +21,14 @@ git push origin main
 1. Đăng ký/Đăng nhập: https://railway.app
 2. Click **New Project**
 3. Chọn **Deploy from GitHub repo**
-4. Chọn repository của bạn
-5. **Quan trọng:** Trong Settings → Service → Root Directory
+4. **Quan trọng về quyền truy cập:**
+   - Nếu repository là **Public**: Bất kỳ ai cũng có thể deploy
+   - Nếu repository là **Private**: Bạn cần:
+     * Được chủ sở hữu mời làm **Collaborator** (Settings → Collaborators trên GitHub)
+     * Hoặc **Fork** repository về tài khoản của bạn (nếu được phép)
+     * Railway chỉ hiển thị các repository bạn có quyền truy cập
+5. Chọn repository (sẽ chỉ thấy các repo bạn có quyền)
+6. **Quan trọng:** Trong Settings → Service → Root Directory
    - Set: `admin-web/backend`
 
 ### **3. Setup Database**

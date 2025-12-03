@@ -61,7 +61,7 @@ export class OrdersService {
     });
   }
 
-  async findOne(orderId: string): Promise<Order> {
+  private async findOrderEntity(orderId: string): Promise<Order> {
     const order = await this.orderRepository.findOne({
       where: { orderId },
     });
@@ -71,20 +71,34 @@ export class OrdersService {
     return order;
   }
 
+  async findOne(orderId: string): Promise<any> {
+    const order = await this.findOrderEntity(orderId);
+    
+    // Get order items
+    const orderItems = await this.orderItemRepository.find({
+      where: { orderId },
+    });
+    
+    return {
+      ...order,
+      items: orderItems,
+    };
+  }
+
   async update(orderId: string, updateOrderDto: UpdateOrderDto): Promise<Order> {
-    const order = await this.findOne(orderId);
+    const order = await this.findOrderEntity(orderId);
     Object.assign(order, updateOrderDto);
     return this.orderRepository.save(order);
   }
 
   async updateStatus(orderId: string, status: string): Promise<Order> {
-    const order = await this.findOne(orderId);
+    const order = await this.findOrderEntity(orderId);
     order.status = status;
     return this.orderRepository.save(order);
   }
 
   async remove(orderId: string): Promise<void> {
-    const order = await this.findOne(orderId);
+    const order = await this.findOrderEntity(orderId);
     await this.orderRepository.remove(order);
   }
 }

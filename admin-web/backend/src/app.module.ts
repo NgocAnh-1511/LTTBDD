@@ -36,5 +36,5 @@ import { BannersModule } from './banners/banners.module';
     BannersModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }
 
