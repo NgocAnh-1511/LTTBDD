@@ -6,6 +6,8 @@
 ### Demo (screenshots)
 ![Demo](screenshots/demo.gif)  
 *(Các ảnh chụp màn hình chi tiết xem trong thư mục `/screenshots`)*
+<img width="1271" height="900" alt="image" src="https://github.com/user-attachments/assets/5ba7d339-4181-41f3-af26-9c579491bf17" />
+
 
 ### Kiến trúc hệ thống (MVVM + Repository Pattern)
 ![MVVM Architecture](docs/architecture/mvvm_architecture.png)
