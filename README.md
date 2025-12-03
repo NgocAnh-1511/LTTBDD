@@ -9,11 +9,12 @@
 
 ### Kiến trúc hệ thống (MVVM + Repository Pattern)
 ![MVVM Architecture](docs/architecture/mvvm_architecture.png)
+<br/>
 <img width="561" height="538" alt="image" src="https://github.com/user-attachments/assets/ac50b504-0a41-465b-a1b0-ea41a379ee27" />
-
 
 ### Sơ đồ Use Case (Luồng nghiệp vụ chính)
 ![Use Case Diagram](docs/usecase/usecase_diagram.png)
+<br/>
 <img width="945" height="849" alt="image" src="https://github.com/user-attachments/assets/fd1cd9cc-5990-4120-98d0-ebf95dbba5f2" />
 
 
