@@ -1,5 +1,5 @@
 # Ứng dụng Cửa hàng Cà phê - Coffee Shop Android App ☕  
-**Môn học**: Lập trình Di động – Nhóm 17  
+**Môn học**: Lập trình Di động – Nhóm 18
 **Trường**: Đại học Giao thông Vận tải TP.HCM – Viện Công nghệ Thông tin & Điện, Điện tử  
 **Thời gian hoàn thành**: 30/11/2025  
 
