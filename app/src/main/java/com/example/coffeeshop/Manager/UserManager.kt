@@ -1,463 +1,314 @@
 package com.example.coffeeshop.Manager
 
-import android.content.ContentValues
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
-import com.example.coffeeshop.Database.DatabaseHelper
+import android.content.SharedPreferences
 import com.example.coffeeshop.Domain.UserModel
+import com.example.coffeeshop.Network.ApiClient
+import com.example.coffeeshop.Network.ApiService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class UserManager(private val context: Context) {
-    private val dbHelper = DatabaseHelper(context)
-    private val gson = com.google.gson.Gson()
-    private val syncManager = FirebaseSyncManager(context)
-
-    private fun getWritableDatabase(): SQLiteDatabase {
-        return dbHelper.writableDatabase
-    }
-
-    private fun getReadableDatabase(): SQLiteDatabase {
-        return dbHelper.readableDatabase
-    }
-
-    fun saveUser(user: UserModel) {
-        val db = getWritableDatabase()
-        val values = ContentValues().apply {
-            put(DatabaseHelper.COL_USER_ID, user.userId)
-            put(DatabaseHelper.COL_PHONE_NUMBER, user.phoneNumber)
-            put(DatabaseHelper.COL_FULL_NAME, user.fullName)
-            put(DatabaseHelper.COL_EMAIL, user.email)
-            put(DatabaseHelper.COL_PASSWORD, user.password)
-            put(DatabaseHelper.COL_AVATAR_PATH, user.avatarPath)
-            put(DatabaseHelper.COL_CREATED_AT, user.createdAt)
-            put(DatabaseHelper.COL_IS_LOGGED_IN, 1) // Set logged in
-            put(DatabaseHelper.COL_IS_ADMIN, if (user.isAdmin) 1 else 0)
+    private val apiService: ApiService = ApiClient.getApiService(context)
+    private val prefs: SharedPreferences = context.getSharedPreferences("CoffeeShopPrefs", Context.MODE_PRIVATE)
+    
+    /**
+     * Lưu user vào SharedPreferences (local storage)
+     */
+    private fun saveUserToLocal(user: UserModel) {
+        prefs.edit().apply {
+            putString("user_id", user.userId)
+            putString("phone_number", user.phoneNumber)
+            putString("full_name", user.fullName)
+            putString("email", user.email)
+            putString("avatar_path", user.avatarPath)
+            putLong("created_at", user.createdAt)
+            putBoolean("is_admin", user.isAdmin)
+            putBoolean("is_logged_in", true)
+            apply()
         }
-
-        // Check if user exists
-        val cursor = db.query(
-            DatabaseHelper.TABLE_USERS,
-            arrayOf(DatabaseHelper.COL_USER_ID),
-            "${DatabaseHelper.COL_USER_ID} = ?",
-            arrayOf(user.userId),
-            null, null, null
-        )
-
-        if (cursor.moveToFirst()) {
-            // Update existing user
-            db.update(
-                DatabaseHelper.TABLE_USERS,
-                values,
-                "${DatabaseHelper.COL_USER_ID} = ?",
-                arrayOf(user.userId)
-            )
-        } else {
-            // Insert new user
-            db.insert(DatabaseHelper.TABLE_USERS, null, values)
-        }
-        cursor.close()
+    }
+    
+    /**
+     * Lấy user từ SharedPreferences
+     */
+    private fun getUserFromLocal(): UserModel? {
+        val userId = prefs.getString("user_id", null) ?: return null
+        val isLoggedIn = prefs.getBoolean("is_logged_in", false)
+        if (!isLoggedIn) return null
         
-        // Đồng bộ lên Firebase (chạy trên background thread)
-        syncManager.syncAllDataToFirebaseAsync(user.userId)
-    }
-
-    fun getCurrentUser(): UserModel? {
-        val db = getReadableDatabase()
-        val cursor = db.query(
-            DatabaseHelper.TABLE_USERS,
-            null,
-            "${DatabaseHelper.COL_IS_LOGGED_IN} = ?",
-            arrayOf("1"),
-            null, null, null, "1"
+        return UserModel(
+            userId = userId,
+            phoneNumber = prefs.getString("phone_number", "") ?: "",
+            fullName = prefs.getString("full_name", "") ?: "",
+            email = prefs.getString("email", "") ?: "",
+            password = "", // Không lưu password local
+            avatarPath = prefs.getString("avatar_path", "") ?: "",
+            createdAt = prefs.getLong("created_at", System.currentTimeMillis()),
+            isAdmin = prefs.getBoolean("is_admin", false)
         )
-
-        return try {
-            if (cursor.moveToFirst()) {
-                val userIdIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_USER_ID)
-                val phoneIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PHONE_NUMBER)
-                val fullNameIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_FULL_NAME)
-                val emailIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_EMAIL)
-                val passwordIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PASSWORD)
-                val avatarPathIndex = try { cursor.getColumnIndexOrThrow(DatabaseHelper.COL_AVATAR_PATH) } catch (e: Exception) { -1 }
-                val createdAtIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_CREATED_AT)
-                val isAdminIndex = try { cursor.getColumnIndexOrThrow(DatabaseHelper.COL_IS_ADMIN) } catch (e: Exception) { -1 }
+    }
+    
+    /**
+     * Đăng nhập qua API
+     */
+    suspend fun login(phoneNumber: String, password: String): UserModel? = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.login(
+                com.example.coffeeshop.Network.LoginRequest(phoneNumber, password)
+            )
+            
+            if (response.isSuccessful && response.body() != null) {
+                val loginResponse = response.body()!!
+                val userResponse = loginResponse.user
                 
+                // Lưu token
+                ApiClient.saveToken(context, loginResponse.access_token)
+                
+                // Convert và lưu user
                 val user = UserModel(
-                    userId = cursor.getString(userIdIndex) ?: "",
-                    phoneNumber = cursor.getString(phoneIndex) ?: "",
-                    fullName = if (fullNameIndex >= 0 && !cursor.isNull(fullNameIndex)) cursor.getString(fullNameIndex) ?: "" else "",
-                    email = if (emailIndex >= 0 && !cursor.isNull(emailIndex)) cursor.getString(emailIndex) ?: "" else "",
-                    password = if (passwordIndex >= 0 && !cursor.isNull(passwordIndex)) cursor.getString(passwordIndex) ?: "" else "",
-                    avatarPath = if (avatarPathIndex >= 0 && !cursor.isNull(avatarPathIndex)) cursor.getString(avatarPathIndex) ?: "" else "",
-                    createdAt = cursor.getLong(createdAtIndex),
-                    isAdmin = if (isAdminIndex >= 0 && !cursor.isNull(isAdminIndex)) cursor.getInt(isAdminIndex) == 1 else false
+                    userId = userResponse.userId,
+                    phoneNumber = userResponse.phoneNumber,
+                    fullName = userResponse.fullName ?: "",
+                    email = userResponse.email ?: "",
+                    password = "", // Không lưu password
+                    avatarPath = userResponse.avatarPath ?: "",
+                    createdAt = System.currentTimeMillis(), // API không trả về createdAt
+                    isAdmin = userResponse.isAdmin
                 )
-                cursor.close()
-                user
-            } else {
-                cursor.close()
-                null
+                
+                saveUserToLocal(user)
+                return@withContext user
             }
+            null
         } catch (e: Exception) {
-            cursor.close()
+            android.util.Log.e("UserManager", "Login error", e)
             null
         }
     }
-
-    fun isLoggedIn(): Boolean {
-        val db = getReadableDatabase()
-        val cursor = db.query(
-            DatabaseHelper.TABLE_USERS,
-            arrayOf(DatabaseHelper.COL_IS_LOGGED_IN),
-            "${DatabaseHelper.COL_IS_LOGGED_IN} = ?",
-            arrayOf("1"),
-            null, null, null, "1"
-        )
-        val isLoggedIn = cursor.moveToFirst()
-        cursor.close()
-        return isLoggedIn
-    }
-
-    fun logout() {
-        val db = getWritableDatabase()
-        val values = ContentValues().apply {
-            put(DatabaseHelper.COL_IS_LOGGED_IN, 0)
-            putNull(DatabaseHelper.COL_AUTH_TOKEN)
+    
+    /**
+     * Đăng ký user mới
+     */
+    suspend fun registerUser(phoneNumber: String, password: String, fullName: String = "", email: String = ""): Boolean = withContext(Dispatchers.IO) {
+        try {
+            android.util.Log.d("UserManager", "Registering user with phone: $phoneNumber")
+            
+            // Nếu fullName rỗng, dùng số điện thoại làm tên mặc định
+            val finalFullName = if (fullName.isBlank()) phoneNumber else fullName
+            // Nếu email rỗng, gửi null thay vì "" để tránh validation error
+            val finalEmail = if (email.isBlank()) null else email
+            
+            android.util.Log.d("UserManager", "Sending register request: phone=$phoneNumber, fullName=$finalFullName, email=$finalEmail")
+            
+            val request = com.example.coffeeshop.Network.RegisterRequest(phoneNumber, password, finalFullName, finalEmail)
+            val response = apiService.register(request)
+            
+            android.util.Log.d("UserManager", "Register response code: ${response.code()}")
+            
+            if (response.isSuccessful && response.body() != null) {
+                val loginResponse = response.body()!!
+                val userResponse = loginResponse.user
+                
+                // Lưu token
+                ApiClient.saveToken(context, loginResponse.access_token)
+                
+                // Convert và lưu user
+                val user = UserModel(
+                    userId = userResponse.userId,
+                    phoneNumber = userResponse.phoneNumber,
+                    fullName = userResponse.fullName ?: "",
+                    email = userResponse.email ?: "",
+                    password = "",
+                    avatarPath = userResponse.avatarPath ?: "",
+                    createdAt = System.currentTimeMillis(),
+                    isAdmin = userResponse.isAdmin
+                )
+                
+                saveUserToLocal(user)
+                android.util.Log.d("UserManager", "Register successful: ${userResponse.userId}")
+                return@withContext true
+            } else {
+                val errorBody = try {
+                    response.errorBody()?.string()
+                } catch (e: Exception) {
+                    "Cannot read error body: ${e.message}"
+                }
+                android.util.Log.e("UserManager", "Register failed: ${response.code()} - $errorBody")
+                
+                // Nếu là lỗi 400 (Bad Request), có thể là phone number đã tồn tại
+                if (response.code() == 400) {
+                    android.util.Log.e("UserManager", "Bad Request - likely phone number already exists or validation failed")
+                }
+                
+                return@withContext false
+            }
+        } catch (e: java.net.UnknownHostException) {
+            android.util.Log.e("UserManager", "Network error: Cannot connect to server. Is backend running?", e)
+            return@withContext false
+        } catch (e: java.net.ConnectException) {
+            android.util.Log.e("UserManager", "Connection error: Cannot connect to server. Is backend running at http://localhost:3000?", e)
+            return@withContext false
+        } catch (e: Exception) {
+            android.util.Log.e("UserManager", "Register error", e)
+            e.printStackTrace()
+            return@withContext false
         }
-        db.update(
-            DatabaseHelper.TABLE_USERS,
-            values,
-            "${DatabaseHelper.COL_IS_LOGGED_IN} = ?",
-            arrayOf("1")
-        )
     }
-
+    
+    /**
+     * Lấy user hiện tại (từ local hoặc API)
+     */
+    fun getCurrentUser(): UserModel? {
+        return getUserFromLocal()
+    }
+    
+    /**
+     * Lấy user từ API và cập nhật local
+     */
+    suspend fun refreshCurrentUser(): UserModel? = withContext(Dispatchers.IO) {
+        try {
+            val token = ApiClient.getToken(context) ?: return@withContext null
+            val response = apiService.getProfile("Bearer $token")
+            
+            if (response.isSuccessful && response.body() != null) {
+                val userResponse = response.body()!!
+                val user = UserModel(
+                    userId = userResponse.userId,
+                    phoneNumber = userResponse.phoneNumber,
+                    fullName = userResponse.fullName ?: "",
+                    email = userResponse.email ?: "",
+                    password = "",
+                    avatarPath = userResponse.avatarPath ?: "",
+                    createdAt = System.currentTimeMillis(),
+                    isAdmin = userResponse.isAdmin
+                )
+                
+                saveUserToLocal(user)
+                return@withContext user
+            }
+            null
+        } catch (e: Exception) {
+            android.util.Log.e("UserManager", "Refresh user error", e)
+            null
+        }
+    }
+    
+    /**
+     * Cập nhật thông tin user
+     */
+    suspend fun updateUser(userId: String, fullName: String? = null, email: String? = null, password: String? = null, avatarPath: String? = null): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = ApiClient.getToken(context) ?: return@withContext false
+            val response = apiService.updateUser(
+                "Bearer $token",
+                userId,
+                com.example.coffeeshop.Network.UpdateUserRequest(fullName, email, password, avatarPath)
+            )
+            
+            if (response.isSuccessful && response.body() != null) {
+                val userResponse = response.body()!!
+                val user = UserModel(
+                    userId = userResponse.userId,
+                    phoneNumber = userResponse.phoneNumber,
+                    fullName = userResponse.fullName ?: "",
+                    email = userResponse.email ?: "",
+                    password = "",
+                    avatarPath = userResponse.avatarPath ?: "",
+                    createdAt = System.currentTimeMillis(),
+                    isAdmin = userResponse.isAdmin
+                )
+                
+                saveUserToLocal(user)
+                return@withContext true
+            }
+            false
+        } catch (e: Exception) {
+            android.util.Log.e("UserManager", "Update user error", e)
+            false
+        }
+    }
+    
+    /**
+     * Đăng xuất
+     */
+    fun logout() {
+        prefs.edit().putBoolean("is_logged_in", false).apply()
+        ApiClient.clearToken(context)
+    }
+    
+    /**
+     * Kiểm tra đã đăng nhập chưa
+     */
+    fun isLoggedIn(): Boolean {
+        return prefs.getBoolean("is_logged_in", false) && ApiClient.getToken(context) != null
+    }
+    
+    /**
+     * Lấy user ID
+     */
     fun getUserId(): String? {
         return getCurrentUser()?.userId
     }
-
+    
+    /**
+     * Lấy số điện thoại
+     */
     fun getPhoneNumber(): String? {
         return getCurrentUser()?.phoneNumber
     }
-
+    
     /**
-     * Kiểm tra xem user hiện tại có phải admin không
+     * Kiểm tra có phải admin không
      */
     fun isAdmin(): Boolean {
         return getCurrentUser()?.isAdmin ?: false
     }
-
+    
     /**
-     * Tạo tài khoản admin mặc định nếu chưa tồn tại
+     * Lưu token (đã được xử lý trong ApiClient)
+     */
+    fun saveToken(token: String) {
+        ApiClient.saveToken(context, token)
+    }
+    
+    /**
+     * Lấy token
+     */
+    fun getToken(): String? {
+        return ApiClient.getToken(context)
+    }
+    
+    /**
+     * Xóa token
+     */
+    fun clearToken() {
+        ApiClient.clearToken(context)
+    }
+    
+    /**
+     * Kiểm tra số điện thoại đã tồn tại (gọi API)
+     */
+    suspend fun isPhoneNumberExists(phoneNumber: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = ApiClient.getToken(context) ?: return@withContext false
+            val response = apiService.getUsers("Bearer $token")
+            
+            if (response.isSuccessful && response.body() != null) {
+                val users = response.body()!!
+                return@withContext users.any { it.phoneNumber == phoneNumber }
+            }
+            false
+        } catch (e: Exception) {
+            android.util.Log.e("UserManager", "Check phone exists error", e)
+            false
+        }
+    }
+    
+    /**
+     * Tạo admin mặc định (không cần nữa vì đã có trong MySQL)
      */
     fun createDefaultAdminIfNotExists() {
-        val adminPhone = "admin"
-        val adminPassword = "admin123"
-        
-        // Kiểm tra xem admin đã tồn tại chưa
-        if (isPhoneNumberExists(adminPhone)) {
-            return
-        }
-        
-        // Tạo tài khoản admin
-        val db = getWritableDatabase()
-        val userId = "admin_${System.currentTimeMillis()}"
-        val values = ContentValues().apply {
-            put(DatabaseHelper.COL_USER_ID, userId)
-            put(DatabaseHelper.COL_PHONE_NUMBER, adminPhone)
-            put(DatabaseHelper.COL_FULL_NAME, "Administrator")
-            put(DatabaseHelper.COL_EMAIL, "admin@coffeeshop.com")
-            put(DatabaseHelper.COL_PASSWORD, adminPassword)
-            put(DatabaseHelper.COL_AVATAR_PATH, "")
-            put(DatabaseHelper.COL_CREATED_AT, System.currentTimeMillis())
-            put(DatabaseHelper.COL_IS_LOGGED_IN, 0)
-            put(DatabaseHelper.COL_IS_ADMIN, 1) // Set as admin
-        }
-        
-        db.insert(DatabaseHelper.TABLE_USERS, null, values)
-        
-        // Đồng bộ lên Firebase
-        val adminUser = UserModel(
-            userId = userId,
-            phoneNumber = adminPhone,
-            fullName = "Administrator",
-            email = "admin@coffeeshop.com",
-            password = adminPassword,
-            avatarPath = "",
-            createdAt = System.currentTimeMillis(),
-            isAdmin = true
-        )
-        syncManager.syncAllDataToFirebaseAsync(userId)
-    }
-
-    fun saveToken(token: String) {
-        val userId = getUserId()
-        if (userId != null) {
-            val db = getWritableDatabase()
-            val values = ContentValues().apply {
-                put(DatabaseHelper.COL_AUTH_TOKEN, token)
-            }
-            db.update(
-                DatabaseHelper.TABLE_USERS,
-                values,
-                "${DatabaseHelper.COL_USER_ID} = ?",
-                arrayOf(userId)
-            )
-        }
-    }
-
-    fun getToken(): String? {
-        val db = getReadableDatabase()
-        val cursor = db.query(
-            DatabaseHelper.TABLE_USERS,
-            arrayOf(DatabaseHelper.COL_AUTH_TOKEN),
-            "${DatabaseHelper.COL_IS_LOGGED_IN} = ?",
-            arrayOf("1"),
-            null, null, null, "1"
-        )
-        return try {
-            if (cursor.moveToFirst()) {
-                val tokenIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_AUTH_TOKEN)
-                val token = if (!cursor.isNull(tokenIndex)) cursor.getString(tokenIndex) else null
-                cursor.close()
-                token
-            } else {
-                cursor.close()
-                null
-            }
-        } catch (e: Exception) {
-            cursor.close()
-            null
-        }
-    }
-
-    fun clearToken() {
-        val userId = getUserId()
-        if (userId != null) {
-            val db = getWritableDatabase()
-            val values = ContentValues().apply {
-                putNull(DatabaseHelper.COL_AUTH_TOKEN)
-            }
-            db.update(
-                DatabaseHelper.TABLE_USERS,
-                values,
-                "${DatabaseHelper.COL_USER_ID} = ?",
-                arrayOf(userId)
-            )
-        }
-    }
-
-    /**
-     * Kiểm tra xem số điện thoại đã tồn tại trong database chưa
-     * Kiểm tra cả SQLite và Firebase
-     */
-    fun isPhoneNumberExists(phoneNumber: String): Boolean {
-        val db = getReadableDatabase()
-        val cursor = db.query(
-            DatabaseHelper.TABLE_USERS,
-            arrayOf(DatabaseHelper.COL_PHONE_NUMBER),
-            "${DatabaseHelper.COL_PHONE_NUMBER} = ?",
-            arrayOf(phoneNumber),
-            null, null, null, "1"
-        )
-        val exists = cursor.moveToFirst()
-        cursor.close()
-        return exists
-    }
-    
-    /**
-     * Kiểm tra số điện thoại trên Firebase (async)
-     */
-    fun isPhoneNumberExistsInFirebase(phoneNumber: String, onComplete: (Boolean) -> Unit) {
-        syncManager.findUserByPhoneNumberAsync(phoneNumber) { user ->
-            onComplete(user != null)
-        }
-    }
-
-    /**
-     * Đăng ký user mới
-     * @param phoneNumber Số điện thoại
-     * @param password Mật khẩu
-     * @param autoLogin Có tự động đăng nhập sau khi đăng ký không (mặc định false)
-     * @return true nếu đăng ký thành công, false nếu số điện thoại đã tồn tại
-     */
-    fun registerUser(phoneNumber: String, password: String, autoLogin: Boolean = false): Boolean {
-        // Kiểm tra số điện thoại đã tồn tại chưa
-        if (isPhoneNumberExists(phoneNumber)) {
-            return false
-        }
-
-        val db = getWritableDatabase()
-        val userId = System.currentTimeMillis().toString()
-        val values = ContentValues().apply {
-            put(DatabaseHelper.COL_USER_ID, userId)
-            put(DatabaseHelper.COL_PHONE_NUMBER, phoneNumber)
-            put(DatabaseHelper.COL_FULL_NAME, "")
-            put(DatabaseHelper.COL_EMAIL, "")
-            put(DatabaseHelper.COL_PASSWORD, password)
-            put(DatabaseHelper.COL_AVATAR_PATH, "")
-            put(DatabaseHelper.COL_CREATED_AT, System.currentTimeMillis())
-            put(DatabaseHelper.COL_IS_LOGGED_IN, if (autoLogin) 1 else 0) // Chỉ đăng nhập nếu autoLogin = true
-            put(DatabaseHelper.COL_IS_ADMIN, 0) // User thường không phải admin
-        }
-
-        val result = db.insert(DatabaseHelper.TABLE_USERS, null, values)
-        
-        // Đồng bộ lên Firebase sau khi đăng ký
-        if (result != -1L) {
-            val user = UserModel(
-                userId = userId,
-                phoneNumber = phoneNumber,
-                fullName = "",
-                email = "",
-                password = password,
-                avatarPath = "",
-                createdAt = System.currentTimeMillis()
-            )
-            // Đồng bộ user và tất cả dữ liệu lên Firebase
-            syncManager.syncAllDataToFirebaseAsync(userId)
-        }
-        
-        return result != -1L
-    }
-
-    /**
-     * Đăng nhập - kiểm tra phone number và password trong database
-     * Nếu không tìm thấy trong SQLite, tìm trên Firebase
-     * @return UserModel nếu đăng nhập thành công, null nếu thông tin không đúng
-     */
-    fun login(phoneNumber: String, password: String): UserModel? {
-        // Đầu tiên, tìm trong SQLite
-        val db = getReadableDatabase()
-        val cursor = db.query(
-            DatabaseHelper.TABLE_USERS,
-            null,
-            "${DatabaseHelper.COL_PHONE_NUMBER} = ? AND ${DatabaseHelper.COL_PASSWORD} = ?",
-            arrayOf(phoneNumber, password),
-            null, null, null, "1"
-        )
-
-        return try {
-            if (cursor.moveToFirst()) {
-                // Tìm thấy trong SQLite
-                val userIdIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_USER_ID)
-                val phoneIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PHONE_NUMBER)
-                val fullNameIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_FULL_NAME)
-                val emailIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_EMAIL)
-                val passwordIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PASSWORD)
-                val avatarPathIndex = try { cursor.getColumnIndexOrThrow(DatabaseHelper.COL_AVATAR_PATH) } catch (e: Exception) { -1 }
-                val createdAtIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_CREATED_AT)
-                val isAdminIndex = try { cursor.getColumnIndexOrThrow(DatabaseHelper.COL_IS_ADMIN) } catch (e: Exception) { -1 }
-                
-                val user = UserModel(
-                    userId = cursor.getString(userIdIndex) ?: "",
-                    phoneNumber = cursor.getString(phoneIndex) ?: "",
-                    fullName = if (fullNameIndex >= 0 && !cursor.isNull(fullNameIndex)) cursor.getString(fullNameIndex) ?: "" else "",
-                    email = if (emailIndex >= 0 && !cursor.isNull(emailIndex)) cursor.getString(emailIndex) ?: "" else "",
-                    password = if (passwordIndex >= 0 && !cursor.isNull(passwordIndex)) cursor.getString(passwordIndex) ?: "" else "",
-                    avatarPath = if (avatarPathIndex >= 0 && !cursor.isNull(avatarPathIndex)) cursor.getString(avatarPathIndex) ?: "" else "",
-                    createdAt = cursor.getLong(createdAtIndex),
-                    isAdmin = if (isAdminIndex >= 0 && !cursor.isNull(isAdminIndex)) cursor.getInt(isAdminIndex) == 1 else false
-                )
-                cursor.close()
-                
-                // Set logged in status
-                setLoggedInStatus(user.userId, true)
-                
-                // Đồng bộ từ Firebase về SQLite (để có dữ liệu mới nhất)
-                syncManager.syncAllDataFromFirebaseAsync(user.userId)
-                
-                user
-            } else {
-                cursor.close()
-                // Không tìm thấy trong SQLite, tìm trên Firebase
-                null
-            }
-        } catch (e: Exception) {
-            cursor.close()
-            null
-        }
-    }
-    
-    /**
-     * Đăng nhập từ Firebase (được gọi khi không tìm thấy trong SQLite)
-     */
-    fun loginFromFirebase(phoneNumber: String, password: String, onComplete: (UserModel?) -> Unit) {
-        val trimmedPhone = phoneNumber.trim()
-        val trimmedPassword = password.trim()
-        
-        android.util.Log.d("UserManager", "=== Attempting login from Firebase ===")
-        android.util.Log.d("UserManager", "Phone: '$trimmedPhone' (length: ${trimmedPhone.length})")
-        android.util.Log.d("UserManager", "Password: '${trimmedPassword.take(3)}...' (length: ${trimmedPassword.length})")
-        
-        syncManager.findUserByPhoneNumberAsync(trimmedPhone) { user ->
-            if (user != null) {
-                android.util.Log.d("UserManager", "✓ User found in Firebase")
-                android.util.Log.d("UserManager", "  - userId: ${user.userId}")
-                android.util.Log.d("UserManager", "  - phoneNumber: '${user.phoneNumber}'")
-                android.util.Log.d("UserManager", "  - password from DB: '${user.password.take(3)}...' (length: ${user.password.length})")
-                android.util.Log.d("UserManager", "  - password input: '${trimmedPassword.take(3)}...' (length: ${trimmedPassword.length})")
-                
-                // So sánh password (trim cả hai để đảm bảo chính xác)
-                val dbPassword = user.password.trim()
-                val inputPassword = trimmedPassword
-                val passwordMatch = dbPassword == inputPassword
-                
-                android.util.Log.d("UserManager", "Password comparison:")
-                android.util.Log.d("UserManager", "  - DB password: '$dbPassword'")
-                android.util.Log.d("UserManager", "  - Input password: '$inputPassword'")
-                android.util.Log.d("UserManager", "  - Match: $passwordMatch")
-                
-                if (passwordMatch) {
-                    android.util.Log.d("UserManager", "✓ Password matches! Saving user to SQLite...")
-                    // Lưu vào SQLite
-                    saveUser(user)
-                    // Set logged in status
-                    setLoggedInStatus(user.userId, true)
-                    // Đồng bộ tất cả dữ liệu từ Firebase về SQLite
-                    syncManager.syncAllDataFromFirebaseAsync(user.userId) { success ->
-                        android.util.Log.d("UserManager", "Data synced from Firebase: $success")
-                    }
-                    android.util.Log.d("UserManager", "=== Login from Firebase successful! ===")
-                    onComplete(user)
-                } else {
-                    android.util.Log.w("UserManager", "✗ Password mismatch!")
-                    android.util.Log.w("UserManager", "  - DB: '$dbPassword' (${dbPassword.length} chars)")
-                    android.util.Log.w("UserManager", "  - Input: '$inputPassword' (${inputPassword.length} chars)")
-                    onComplete(null)
-                }
-            } else {
-                android.util.Log.w("UserManager", "✗ User not found in Firebase for phone: '$trimmedPhone'")
-                onComplete(null)
-            }
-        }
-    }
-
-    /**
-     * Set trạng thái đăng nhập cho user
-     */
-    private fun setLoggedInStatus(userId: String, isLoggedIn: Boolean) {
-        // Đầu tiên, set tất cả users về trạng thái chưa đăng nhập
-        val db = getWritableDatabase()
-        val unsetValues = ContentValues().apply {
-            put(DatabaseHelper.COL_IS_LOGGED_IN, 0)
-        }
-        db.update(
-            DatabaseHelper.TABLE_USERS,
-            unsetValues,
-            null,
-            null
-        )
-        
-        // Sau đó set user hiện tại là đã đăng nhập
-        val setValues = ContentValues().apply {
-            put(DatabaseHelper.COL_IS_LOGGED_IN, if (isLoggedIn) 1 else 0)
-        }
-        db.update(
-            DatabaseHelper.TABLE_USERS,
-            setValues,
-            "${DatabaseHelper.COL_USER_ID} = ?",
-            arrayOf(userId)
-        )
+        // Không cần làm gì, admin đã có trong MySQL database
     }
 }
-

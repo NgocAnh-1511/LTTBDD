@@ -1,318 +1,209 @@
 package com.example.coffeeshop.Manager
 
-import android.content.ContentValues
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
-import com.example.coffeeshop.Database.DatabaseHelper
 import com.example.coffeeshop.Domain.CartModel
 import com.example.coffeeshop.Domain.OrderModel
+import com.example.coffeeshop.Network.ApiClient
+import com.example.coffeeshop.Network.ApiService
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 class OrderManager(private val context: Context) {
-    private val dbHelper = DatabaseHelper(context)
-    private val gson = Gson()
+    private val apiService: ApiService = ApiClient.getApiService(context)
     private val userManager = UserManager(context)
-    private val syncManager = FirebaseSyncManager(context)
-
-    private fun getWritableDatabase(): SQLiteDatabase {
-        return dbHelper.writableDatabase
-    }
-
-    private fun getReadableDatabase(): SQLiteDatabase {
-        return dbHelper.readableDatabase
-    }
+    private val gson = Gson()
     
     private fun getCurrentUserId(): String? {
         return userManager.getUserId()
     }
-
-    fun createOrder(items: MutableList<CartModel>, 
-                   totalPrice: Double,
-                   deliveryAddress: String = "",
-                   phoneNumber: String = "",
-                   customerName: String = "",
-                   paymentMethod: String = "Tiền mặt"): OrderModel {
-        val order = OrderModel(
-            orderId = UUID.randomUUID().toString(),
-            items = items.toMutableList(),
-            totalPrice = totalPrice,
-            orderDate = System.currentTimeMillis(),
-            status = "Pending",
-            deliveryAddress = deliveryAddress,
-            phoneNumber = phoneNumber,
-            customerName = customerName,
-            paymentMethod = paymentMethod
-        )
-        
-        val userId = getCurrentUserId() ?: return order
-        val db = getWritableDatabase()
-        val itemsJson = gson.toJson(items)
-        
-        val values = ContentValues().apply {
-            put(DatabaseHelper.COL_ORDER_ID, order.orderId)
-            put(DatabaseHelper.COL_ORDER_USER_ID, userId)
-            put(DatabaseHelper.COL_ITEMS_JSON, itemsJson)
-            put(DatabaseHelper.COL_TOTAL_PRICE, totalPrice)
-            put(DatabaseHelper.COL_ORDER_DATE, order.orderDate)
-            put(DatabaseHelper.COL_STATUS, order.status)
-            put(DatabaseHelper.COL_DELIVERY_ADDRESS, deliveryAddress)
-            put(DatabaseHelper.COL_ORDER_PHONE, phoneNumber)
-            put(DatabaseHelper.COL_CUSTOMER_NAME, customerName)
-            put(DatabaseHelper.COL_PAYMENT_METHOD, paymentMethod)
-        }
-        
-        db.insert(DatabaseHelper.TABLE_ORDERS, null, values)
-        
-        // Đồng bộ lên Firebase
-        syncManager.syncAllDataToFirebaseAsync(userId)
-        
-        return order
-    }
-
-    fun getAllOrders(): MutableList<OrderModel> {
-        val userId = getCurrentUserId() ?: return mutableListOf()
-        val db = getReadableDatabase()
-        val orders = mutableListOf<OrderModel>()
-        
-        val cursor = db.query(
-            DatabaseHelper.TABLE_ORDERS,
-            null,
-            "${DatabaseHelper.COL_ORDER_USER_ID} = ?",
-            arrayOf(userId),
-            null, null,
-            "${DatabaseHelper.COL_ORDER_DATE} DESC" // Sort by date descending
-        )
-
+    
+    /**
+     * Tạo order mới qua API
+     */
+    suspend fun createOrder(
+        items: MutableList<CartModel>,
+        totalPrice: Double,
+        deliveryAddress: String = "",
+        phoneNumber: String = "",
+        customerName: String = "",
+        paymentMethod: String = "Tiền mặt"
+    ): OrderModel? = withContext(Dispatchers.IO) {
         try {
-            while (cursor.moveToNext()) {
-                val itemsJsonIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ITEMS_JSON)
-                val orderIdIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_ID)
-                val totalPriceIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_TOTAL_PRICE)
-                val orderDateIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_DATE)
-                val statusIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_STATUS)
-                val deliveryAddressIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_DELIVERY_ADDRESS)
-                val phoneIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_PHONE)
-                val customerNameIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_CUSTOMER_NAME)
-                val paymentMethodIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PAYMENT_METHOD)
-                
-                val itemsJson = cursor.getString(itemsJsonIndex) ?: continue
-                val type = object : TypeToken<MutableList<CartModel>>() {}.type
-                val items = try {
-                    gson.fromJson<MutableList<CartModel>>(itemsJson, type) ?: mutableListOf()
-                } catch (e: Exception) {
-                    mutableListOf()
-                }
-                
-                val order = OrderModel(
-                    orderId = cursor.getString(orderIdIndex) ?: "",
-                    items = items,
-                    totalPrice = cursor.getDouble(totalPriceIndex),
-                    orderDate = cursor.getLong(orderDateIndex),
-                    status = (cursor.getString(statusIndex) ?: "Pending").trim(),
-                    deliveryAddress = if (!cursor.isNull(deliveryAddressIndex)) cursor.getString(deliveryAddressIndex) ?: "" else "",
-                    phoneNumber = if (!cursor.isNull(phoneIndex)) cursor.getString(phoneIndex) ?: "" else "",
-                    customerName = if (!cursor.isNull(customerNameIndex)) cursor.getString(customerNameIndex) ?: "" else "",
-                    paymentMethod = if (!cursor.isNull(paymentMethodIndex)) cursor.getString(paymentMethodIndex) ?: "Tiền mặt" else "Tiền mặt"
-                )
-                orders.add(order)
+            android.util.Log.d("OrderManager", "=== Creating Order ===")
+            android.util.Log.d("OrderManager", "Items count: ${items.size}")
+            android.util.Log.d("OrderManager", "Total price: $totalPrice")
+            
+            val userId = getCurrentUserId()
+            if (userId == null) {
+                android.util.Log.e("OrderManager", "User ID is null - user not logged in")
+                return@withContext null
             }
-        } catch (e: Exception) {
-            // Return empty list on error
-        } finally {
-            cursor.close()
-        }
-        
-        return orders
-    }
-
-    fun getOrderById(orderId: String): OrderModel? {
-        val db = getReadableDatabase()
-        val cursor = db.query(
-            DatabaseHelper.TABLE_ORDERS,
-            null,
-            "${DatabaseHelper.COL_ORDER_ID} = ?",
-            arrayOf(orderId),
-            null, null, null, "1"
-        )
-
-        return try {
-            if (cursor.moveToFirst()) {
-                val itemsJsonIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ITEMS_JSON)
-                val orderIdIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_ID)
-                val totalPriceIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_TOTAL_PRICE)
-                val orderDateIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_DATE)
-                val statusIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_STATUS)
-                val deliveryAddressIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_DELIVERY_ADDRESS)
-                val phoneIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_PHONE)
-                val customerNameIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_CUSTOMER_NAME)
-                val paymentMethodIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PAYMENT_METHOD)
-                
-                val itemsJson = cursor.getString(itemsJsonIndex) ?: ""
-                val type = object : TypeToken<MutableList<CartModel>>() {}.type
-                val items = try {
-                    gson.fromJson<MutableList<CartModel>>(itemsJson, type) ?: mutableListOf()
-                } catch (e: Exception) {
-                    mutableListOf()
-                }
-                
-                val order = OrderModel(
-                    orderId = cursor.getString(orderIdIndex) ?: "",
-                    items = items,
-                    totalPrice = cursor.getDouble(totalPriceIndex),
-                    orderDate = cursor.getLong(orderDateIndex),
-                    status = (cursor.getString(statusIndex) ?: "Pending").trim(),
-                    deliveryAddress = if (!cursor.isNull(deliveryAddressIndex)) cursor.getString(deliveryAddressIndex) ?: "" else "",
-                    phoneNumber = if (!cursor.isNull(phoneIndex)) cursor.getString(phoneIndex) ?: "" else "",
-                    customerName = if (!cursor.isNull(customerNameIndex)) cursor.getString(customerNameIndex) ?: "" else "",
-                    paymentMethod = if (!cursor.isNull(paymentMethodIndex)) cursor.getString(paymentMethodIndex) ?: "Tiền mặt" else "Tiền mặt"
+            android.util.Log.d("OrderManager", "User ID: $userId")
+            
+            val token = ApiClient.getToken(context)
+            if (token == null) {
+                android.util.Log.e("OrderManager", "Token is null - user not authenticated")
+                return@withContext null
+            }
+            android.util.Log.d("OrderManager", "Token exists: ${token.take(20)}...")
+            
+            // Convert items to OrderItemRequest
+            val orderItems = items.map { cartItem ->
+                com.example.coffeeshop.Network.OrderItemRequest(
+                    productId = cartItem.item.categoryId.ifEmpty { null }, // Use categoryId as productId or null
+                    productName = cartItem.item.title,
+                    quantity = cartItem.quantity,
+                    price = cartItem.item.price,
+                    itemJson = gson.toJson(cartItem.item)
                 )
-                cursor.close()
-                order
+            }
+            
+            val request = com.example.coffeeshop.Network.CreateOrderRequest(
+                userId = userId,
+                totalPrice = totalPrice,
+                deliveryAddress = deliveryAddress.ifEmpty { null },
+                phoneNumber = phoneNumber.ifEmpty { null },
+                customerName = customerName.ifEmpty { null },
+                paymentMethod = paymentMethod.ifEmpty { null },
+                items = orderItems
+            )
+            
+            android.util.Log.d("OrderManager", "Sending create order request to API...")
+            val response = apiService.createOrder("Bearer $token", request)
+            
+            android.util.Log.d("OrderManager", "Create order response code: ${response.code()}")
+            
+            if (response.isSuccessful && response.body() != null) {
+                val orderResponse = response.body()!!
+                android.util.Log.d("OrderManager", "Order created successfully: ${orderResponse.orderId ?: orderResponse.order_id}")
+                return@withContext orderResponse.toOrderModel(items)
             } else {
-                cursor.close()
-                null
+                val errorBody = try {
+                    response.errorBody()?.string()
+                } catch (e: Exception) {
+                    "Cannot read error body: ${e.message}"
+                }
+                android.util.Log.e("OrderManager", "Create order failed: ${response.code()} - $errorBody")
+                return@withContext null
             }
+        } catch (e: java.net.UnknownHostException) {
+            android.util.Log.e("OrderManager", "Network error: Cannot connect to server. Is backend running?", e)
+            return@withContext null
+        } catch (e: java.net.ConnectException) {
+            android.util.Log.e("OrderManager", "Connection error: Cannot connect to server. Is backend running at http://localhost:3000?", e)
+            return@withContext null
         } catch (e: Exception) {
-            cursor.close()
+            android.util.Log.e("OrderManager", "Create order error", e)
+            e.printStackTrace()
+            return@withContext null
+        }
+    }
+    
+    /**
+     * Lấy tất cả orders của user hiện tại
+     */
+    suspend fun getAllOrders(): MutableList<OrderModel> = withContext(Dispatchers.IO) {
+        try {
+            val token = ApiClient.getToken(context) ?: return@withContext mutableListOf()
+            val response = apiService.getOrders("Bearer $token")
+            
+            if (response.isSuccessful && response.body() != null) {
+                val ordersResponse = response.body()!!
+                val userId = getCurrentUserId()
+                
+                // Filter orders by current user (nếu không phải admin)
+                val filteredOrders = if (userManager.isAdmin()) {
+                    ordersResponse
+                } else {
+                    ordersResponse.filter { 
+                        (it.userId ?: it.user_id) == userId 
+                    }
+                }
+                
+                // Convert to OrderModel và fetch items từ order_items table
+                return@withContext filteredOrders.map { orderResponse ->
+                    // Fetch order items từ API (cần thêm endpoint hoặc include trong response)
+                    val items = mutableListOf<CartModel>()
+                    // TODO: Fetch order items từ order_items table
+                    orderResponse.toOrderModel(items)
+                }.toMutableList()
+            }
+            mutableListOf()
+        } catch (e: Exception) {
+            android.util.Log.e("OrderManager", "Get all orders error", e)
+            mutableListOf()
+        }
+    }
+    
+    /**
+     * Lấy order theo ID
+     */
+    suspend fun getOrderById(orderId: String): OrderModel? = withContext(Dispatchers.IO) {
+        try {
+            val token = ApiClient.getToken(context) ?: return@withContext null
+            val response = apiService.getOrder("Bearer $token", orderId)
+            
+            if (response.isSuccessful && response.body() != null) {
+                val orderResponse = response.body()!!
+                val items = mutableListOf<CartModel>()
+                // TODO: Fetch order items từ order_items table
+                return@withContext orderResponse.toOrderModel(items)
+            }
+            null
+        } catch (e: Exception) {
+            android.util.Log.e("OrderManager", "Get order by ID error", e)
             null
         }
     }
-
-    fun updateOrderStatus(orderId: String, status: String): Boolean {
-        val db = getWritableDatabase()
-        val statusTrimmed = status.trim()
-        
-        android.util.Log.d("OrderManager", "Updating order $orderId status to: '$statusTrimmed'")
-        
-        // First, get the order to find its user_id
-        val order = getOrderById(orderId)
-        if (order == null) {
-            android.util.Log.e("OrderManager", "Order not found: $orderId")
-            return false
-        }
-        
-        // Get user_id from the order in database
-        val cursor = db.query(
-            DatabaseHelper.TABLE_ORDERS,
-            arrayOf(DatabaseHelper.COL_ORDER_USER_ID),
-            "${DatabaseHelper.COL_ORDER_ID} = ?",
-            arrayOf(orderId),
-            null, null, null, "1"
-        )
-        
-        var orderUserId: String? = null
-        try {
-            if (cursor.moveToFirst()) {
-                val userIdIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_USER_ID)
-                orderUserId = cursor.getString(userIdIndex)
-            }
-        } finally {
-            cursor.close()
-        }
-        
-        val values = ContentValues().apply {
-            put(DatabaseHelper.COL_STATUS, statusTrimmed)
-        }
-        val result = db.update(
-            DatabaseHelper.TABLE_ORDERS,
-            values,
-            "${DatabaseHelper.COL_ORDER_ID} = ?",
-            arrayOf(orderId)
-        ) > 0
-        
-        android.util.Log.d("OrderManager", "Update result: $result, user_id: $orderUserId")
-        
-        // Verify the update
-        if (result) {
-            val updatedOrder = getOrderById(orderId)
-            android.util.Log.d("OrderManager", "Verified order status after update: '${updatedOrder?.status}'")
-        }
-        
-        // Sync to Firebase - sync the order owner's data
-        if (result && orderUserId != null) {
-            syncManager.syncAllDataToFirebaseAsync(orderUserId)
-        }
-        return result
-    }
-
+    
     /**
-     * Récupère toutes les commandes pour l'admin (sans filtre par user_id)
+     * Cập nhật status của order
      */
-    fun getAllOrdersForAdmin(): MutableList<OrderModel> {
-        val db = getReadableDatabase()
-        val orders = mutableListOf<OrderModel>()
-        
-        val cursor = db.query(
-            DatabaseHelper.TABLE_ORDERS,
-            null,
-            null, // Pas de filtre WHERE
-            null,
-            null, null,
-            "${DatabaseHelper.COL_ORDER_DATE} DESC" // Sort by date descending
-        )
-
+    suspend fun updateOrderStatus(orderId: String, status: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            while (cursor.moveToNext()) {
-                val itemsJsonIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ITEMS_JSON)
-                val orderIdIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_ID)
-                val totalPriceIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_TOTAL_PRICE)
-                val orderDateIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_DATE)
-                val statusIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_STATUS)
-                val deliveryAddressIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_DELIVERY_ADDRESS)
-                val phoneIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_PHONE)
-                val customerNameIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_CUSTOMER_NAME)
-                val paymentMethodIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PAYMENT_METHOD)
-                val userIdIndex = cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ORDER_USER_ID)
-                
-                val itemsJson = cursor.getString(itemsJsonIndex) ?: continue
-                val type = object : TypeToken<MutableList<CartModel>>() {}.type
-                val items = try {
-                    gson.fromJson<MutableList<CartModel>>(itemsJson, type) ?: mutableListOf()
-                } catch (e: Exception) {
-                    mutableListOf()
-                }
-                
-                val order = OrderModel(
-                    orderId = cursor.getString(orderIdIndex) ?: "",
-                    items = items,
-                    totalPrice = cursor.getDouble(totalPriceIndex),
-                    orderDate = cursor.getLong(orderDateIndex),
-                    status = (cursor.getString(statusIndex) ?: "Pending").trim(),
-                    deliveryAddress = if (!cursor.isNull(deliveryAddressIndex)) cursor.getString(deliveryAddressIndex) ?: "" else "",
-                    phoneNumber = if (!cursor.isNull(phoneIndex)) cursor.getString(phoneIndex) ?: "" else "",
-                    customerName = if (!cursor.isNull(customerNameIndex)) cursor.getString(customerNameIndex) ?: "" else "",
-                    paymentMethod = if (!cursor.isNull(paymentMethodIndex)) cursor.getString(paymentMethodIndex) ?: "Tiền mặt" else "Tiền mặt"
-                )
-                orders.add(order)
-            }
+            val token = ApiClient.getToken(context) ?: return@withContext false
+            val response = apiService.updateOrderStatus(
+                "Bearer $token",
+                orderId,
+                com.example.coffeeshop.Network.UpdateStatusRequest(status)
+            )
+            
+            return@withContext response.isSuccessful
         } catch (e: Exception) {
-            // Return empty list on error
-        } finally {
-            cursor.close()
+            android.util.Log.e("OrderManager", "Update order status error", e)
+            false
         }
-        
-        return orders
     }
-
-    fun cancelOrder(orderId: String): Boolean {
+    
+    /**
+     * Lấy tất cả orders (cho admin)
+     */
+    suspend fun getAllOrdersForAdmin(): MutableList<OrderModel> = withContext(Dispatchers.IO) {
+        // Same as getAllOrders, but admin sees all orders
+        getAllOrders()
+    }
+    
+    /**
+     * Hủy order
+     */
+    suspend fun cancelOrder(orderId: String): Boolean {
         return updateOrderStatus(orderId, "Cancelled")
     }
-
-    fun deleteOrder(orderId: String): Boolean {
-        val userId = getCurrentUserId() ?: return false
-        val db = getWritableDatabase()
-        val result = db.delete(
-            DatabaseHelper.TABLE_ORDERS,
-            "${DatabaseHelper.COL_ORDER_ID} = ?",
-            arrayOf(orderId)
-        ) > 0
-        if (result) {
-            syncManager.syncAllDataToFirebaseAsync(userId)
+    
+    /**
+     * Xóa order
+     */
+    suspend fun deleteOrder(orderId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = ApiClient.getToken(context) ?: return@withContext false
+            val response = apiService.deleteOrder("Bearer $token", orderId)
+            return@withContext response.isSuccessful
+        } catch (e: Exception) {
+            android.util.Log.e("OrderManager", "Delete order error", e)
+            false
         }
-        return result
     }
-
 }
-

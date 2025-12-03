@@ -8,15 +8,19 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.coroutines.launch
 import com.example.coffeeshop.Adapter.CartAdapter
 import com.example.coffeeshop.Domain.AddressModel
 import com.example.coffeeshop.Manager.AddressManager
 import com.example.coffeeshop.Manager.CartManager
 import com.example.coffeeshop.Manager.OrderManager
 import com.example.coffeeshop.Manager.UserManager
+import com.example.coffeeshop.Manager.VoucherManager
 import com.example.coffeeshop.R
 import com.example.coffeeshop.Utils.ValidationUtils
+import com.example.coffeeshop.Utils.formatVND
 import com.example.coffeeshop.databinding.ActivityCheckoutBinding
 import java.util.Locale
 
@@ -26,8 +30,9 @@ class CheckoutActivity : AppCompatActivity() {
     private lateinit var orderManager: OrderManager
     private lateinit var addressManager: AddressManager
     private lateinit var userManager: UserManager
+    private lateinit var voucherManager: VoucherManager
     private lateinit var cartAdapter: CartAdapter
-    private var discountPercent: Double = 0.0
+    private var appliedVoucher: com.example.coffeeshop.Domain.VoucherModel? = null
     private var baseTotal: Double = 0.0
     private var hasSelectedAddress: Boolean = false
 
@@ -41,6 +46,7 @@ class CheckoutActivity : AppCompatActivity() {
         cartManager = CartManager(this)
         orderManager = OrderManager(this)
         addressManager = AddressManager(this)
+        voucherManager = VoucherManager(this)
 
         // Bắt buộc phải đăng nhập để thanh toán
         if (!userManager.isLoggedIn()) {
@@ -80,8 +86,8 @@ class CheckoutActivity : AppCompatActivity() {
             }
         }
 
-        binding.applyVoucherBtn.setOnClickListener {
-            applyVoucher()
+        binding.selectVoucherBtn.setOnClickListener {
+            selectVoucher()
         }
 
         binding.selectAddressBtn.setOnClickListener {
@@ -114,6 +120,18 @@ class CheckoutActivity : AppCompatActivity() {
         }
     }
 
+    private val voucherResultLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val voucherJson = result.data?.getStringExtra("selectedVoucher")
+            if (voucherJson != null) {
+                val voucher = com.google.gson.Gson().fromJson(voucherJson, com.example.coffeeshop.Domain.VoucherModel::class.java)
+                applySelectedVoucher(voucher)
+            }
+        }
+    }
+
     private fun selectSavedAddress() {
         val intent = Intent(this, AddressListActivity::class.java)
         intent.putExtra("selectMode", true)
@@ -135,49 +153,51 @@ class CheckoutActivity : AppCompatActivity() {
     }
 
     private fun updateTotalPrice() {
-        binding.subtotalTxt.text = "$${String.format(Locale.getDefault(), "%.2f", baseTotal)}"
+        binding.subtotalTxt.text = formatVND(baseTotal)
         
-        val discount = baseTotal * discountPercent / 100
+        // Tính giảm giá từ voucher
+        val discount = if (appliedVoucher != null) {
+            appliedVoucher!!.calculateDiscount(baseTotal)
+        } else {
+            0.0
+        }
+        
         val finalTotal = baseTotal - discount
         
-        if (discountPercent > 0) {
+        if (discount > 0 && appliedVoucher != null) {
             binding.voucherDiscountLayout.visibility = View.VISIBLE
-            binding.discountTxt.text = "-$${String.format(Locale.getDefault(), "%.2f", discount)}"
+            binding.discountTxt.text = "-${formatVND(discount)}"
         } else {
             binding.voucherDiscountLayout.visibility = View.GONE
         }
         
-        binding.totalPriceTxt.text = "$${String.format(Locale.getDefault(), "%.2f", finalTotal)}"
+        binding.totalPriceTxt.text = formatVND(finalTotal)
     }
 
-    private fun applyVoucher() {
-        val voucherCode = binding.voucherEditText.text.toString().trim().uppercase()
-        
-        // Simple voucher validation - in real app, this would check against server/database
-        when (voucherCode) {
-            "WELCOME10" -> {
-                discountPercent = 10.0
-                binding.voucherAppliedTxt.text = "Mã giảm giá đã được áp dụng: -10%"
+    private fun selectVoucher() {
+        val intent = Intent(this, VoucherListActivity::class.java)
+        intent.putExtra("selectMode", true)
+        intent.putExtra("orderAmount", baseTotal)
+        voucherResultLauncher.launch(intent)
+    }
+
+    private fun applySelectedVoucher(voucher: com.example.coffeeshop.Domain.VoucherModel) {
+        lifecycleScope.launch {
+            // Validate voucher again with current order amount
+            val validatedVoucher = voucherManager.validateVoucher(voucher.code, baseTotal)
+            
+            if (validatedVoucher != null) {
+                appliedVoucher = validatedVoucher
+                
+                val discountText = validatedVoucher.getDescriptionText()
+                binding.voucherAppliedTxt.text = "Mã giảm giá đã được áp dụng: $discountText"
                 binding.voucherAppliedTxt.visibility = View.VISIBLE
-                binding.voucherEditText.isEnabled = false
-                binding.applyVoucherBtn.isEnabled = false
+                binding.selectVoucherBtn.text = "Đổi mã giảm giá"
+                binding.selectVoucherBtn.visibility = View.VISIBLE
                 updateTotalPrice()
-                Toast.makeText(this, "Áp dụng mã giảm giá thành công!", Toast.LENGTH_SHORT).show()
-            }
-            "SAVE20" -> {
-                discountPercent = 20.0
-                binding.voucherAppliedTxt.text = "Mã giảm giá đã được áp dụng: -20%"
-                binding.voucherAppliedTxt.visibility = View.VISIBLE
-                binding.voucherEditText.isEnabled = false
-                binding.applyVoucherBtn.isEnabled = false
-                updateTotalPrice()
-                Toast.makeText(this, "Áp dụng mã giảm giá thành công!", Toast.LENGTH_SHORT).show()
-            }
-            "" -> {
-                Toast.makeText(this, "Vui lòng nhập mã giảm giá", Toast.LENGTH_SHORT).show()
-            }
-            else -> {
-                Toast.makeText(this, "Mã giảm giá không hợp lệ", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@CheckoutActivity, "Áp dụng mã giảm giá thành công!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this@CheckoutActivity, "Mã giảm giá không hợp lệ hoặc đã hết hạn", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -224,50 +244,83 @@ class CheckoutActivity : AppCompatActivity() {
 
     private fun processPayment() {
         val cartList = cartManager.getCartList()
-        val discount = baseTotal * discountPercent / 100
+        val discount = if (appliedVoucher != null) {
+            appliedVoucher!!.calculateDiscount(baseTotal)
+        } else {
+            0.0
+        }
         val totalPrice = baseTotal - discount
+        
         val name = binding.nameEditText.text.toString().trim()
         val phone = binding.phoneEditText.text.toString().trim()
         val address = binding.addressEditText.text.toString().trim()
         val paymentMethod = getPaymentMethod()
-        val voucherCode = if (discountPercent > 0) binding.voucherEditText.text.toString().trim() else ""
+        val voucherCode = appliedVoucher?.code ?: ""
 
         // Show loading
         binding.confirmPaymentBtn.isEnabled = false
         binding.confirmPaymentBtn.text = "Đang xử lý..."
 
-        // Simulate payment processing (in real app, this would call payment API)
-        binding.root.postDelayed({
-            // Create order
-            val order = orderManager.createOrder(
-                items = cartList,
-                totalPrice = totalPrice,
-                deliveryAddress = address,
-                phoneNumber = phone,
-                customerName = name,
-                paymentMethod = paymentMethod
-            )
+        lifecycleScope.launch {
+            try {
+                android.util.Log.d("CheckoutActivity", "=== Processing Payment ===")
+                android.util.Log.d("CheckoutActivity", "Cart items: ${cartList.size}")
+                android.util.Log.d("CheckoutActivity", "Total price: $totalPrice")
+                
+                // Tăng số lần sử dụng voucher nếu có
+                appliedVoucher?.let {
+                    android.util.Log.d("CheckoutActivity", "Incrementing voucher usage: ${it.voucherId}")
+                    voucherManager.incrementUsageCount(it.voucherId)
+                }
+                
+                // Create order
+                android.util.Log.d("CheckoutActivity", "Creating order...")
+                val order = orderManager.createOrder(
+                    items = cartList,
+                    totalPrice = totalPrice,
+                    deliveryAddress = address,
+                    phoneNumber = phone,
+                    customerName = name,
+                    paymentMethod = paymentMethod
+                )
 
-            // Clear cart
-            cartManager.clearCart()
+                if (order != null) {
+                    android.util.Log.d("CheckoutActivity", "Order created successfully: ${order.orderId}")
+                    
+                    // Clear cart
+                    cartManager.clearCart()
 
-            // Show success message and navigate to order detail
-            Toast.makeText(
-                this,
-                "Thanh toán thành công! Mã đơn: #${order.orderId.take(8)}",
-                Toast.LENGTH_LONG
-            ).show()
+                    // Show success message and navigate to order detail
+                    Toast.makeText(
+                        this@CheckoutActivity,
+                        "Thanh toán thành công! Mã đơn: #${order.orderId.take(8)}",
+                        Toast.LENGTH_LONG
+                    ).show()
 
-            // Navigate to order detail
-            val intent = Intent(this, OrderDetailActivity::class.java)
-            val orderJson = com.google.gson.Gson().toJson(order)
-            intent.putExtra("order", orderJson)
-            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-            startActivity(intent)
-            
-            // Finish checkout and cart activities
-            finish()
-        }, 1500) // Simulate 1.5 second processing time
+                    // Navigate to order detail
+                    val intent = Intent(this@CheckoutActivity, OrderDetailActivity::class.java)
+                    val orderJson = com.google.gson.Gson().toJson(order)
+                    intent.putExtra("order", orderJson)
+                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                    startActivity(intent)
+                    
+                    // Finish checkout and cart activities
+                    finish()
+                } else {
+                    android.util.Log.e("CheckoutActivity", "Order creation returned null")
+                    binding.confirmPaymentBtn.isEnabled = true
+                    binding.confirmPaymentBtn.text = "Xác nhận thanh toán"
+                    Toast.makeText(this@CheckoutActivity, "Tạo đơn hàng thất bại. Vui lòng thử lại!", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CheckoutActivity", "Payment processing error", e)
+                e.printStackTrace()
+                binding.confirmPaymentBtn.isEnabled = true
+                binding.confirmPaymentBtn.text = "Xác nhận thanh toán"
+                val errorMsg = e.message ?: "Lỗi không xác định"
+                Toast.makeText(this@CheckoutActivity, "Lỗi: $errorMsg", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     override fun onDestroy() {
