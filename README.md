@@ -7,6 +7,12 @@
 ![Demo](screenshots/demo.gif)  
 *(Các ảnh chụp màn hình chi tiết xem trong thư mục `/screenshots`)*
 
+### Kiến trúc hệ thống (MVVM + Repository Pattern)
+![MVVM Architecture](docs/architecture/mvvm_architecture.png)
+
+### Sơ đồ Use Case (Luồng nghiệp vụ chính)
+![Use Case Diagram](docs/usecase/usecase_diagram.png)
+
 ### Mô tả dự án
 Ứng dụng đặt đồ uống cà phê dành cho khách hàng (Customer Mobile App), được xây dựng hoàn toàn bằng **Kotlin** theo kiến trúc **MVVM**, sử dụng giao diện XML truyền thống và các thành phần Android Jetpack hiện đại.
 
