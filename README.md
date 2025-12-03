@@ -12,6 +12,8 @@
 
 ### Sơ đồ Use Case (Luồng nghiệp vụ chính)
 ![Use Case Diagram](docs/usecase/usecase_diagram.png)
+<img width="945" height="849" alt="image" src="https://github.com/user-attachments/assets/fd1cd9cc-5990-4120-98d0-ebf95dbba5f2" />
+
 
 ### Mô tả dự án
 Ứng dụng đặt đồ uống cà phê dành cho khách hàng (Customer Mobile App), được xây dựng hoàn toàn bằng **Kotlin** theo kiến trúc **MVVM**, sử dụng giao diện XML truyền thống và các thành phần Android Jetpack hiện đại.
