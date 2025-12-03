@@ -14,9 +14,10 @@ RUN npm ci
 # Copy source code
 COPY src ./src
 
-# Invalidate cache when source code changes (force rebuild)
-ARG BUILD_DATE=unknown
-RUN echo "Build date: $BUILD_DATE"
+# Force rebuild - invalidate cache
+# This ensures public controllers are included in the build
+ARG CACHE_BUST=2025-12-03-22-50
+RUN echo "Cache bust: $CACHE_BUST" && date
 
 # Build the application
 RUN npm run build
