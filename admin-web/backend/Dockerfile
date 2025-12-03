@@ -14,6 +14,10 @@ RUN npm ci
 # Copy source code
 COPY src ./src
 
+# Invalidate cache when source code changes (force rebuild)
+ARG BUILD_DATE=unknown
+RUN echo "Build date: $BUILD_DATE"
+
 # Build the application
 RUN npm run build
 
