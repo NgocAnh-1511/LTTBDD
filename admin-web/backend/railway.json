@@ -1,5 +1,12 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
+  "$service": {
+    "source": {
+      "repo": "NgocAnh-1511/LTTBDD",
+      "branch": "backend-deploy",
+      "rootDirectory": "admin-web/backend"
+    }
+  },
   "build": {
     "builder": "NIXPACKS",
     "buildCommand": "npm run build"
