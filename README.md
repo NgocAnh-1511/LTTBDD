@@ -63,7 +63,7 @@
 ### Hướng dẫn cài đặt & chạy dự án
 ```bash
 # 1. Clone repository
-git clone https://github.com/username/CoffeeShop-Android-App.git
+git clone https://github.com/NgocAnh-1511/LTTBDD.git
 
 # 2. Mở bằng Android Studio → Open project
 
