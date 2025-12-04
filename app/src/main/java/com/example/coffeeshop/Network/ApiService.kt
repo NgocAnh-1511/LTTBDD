@@ -262,8 +262,10 @@ data class VoucherResponse(
     val usage_limit: Int? = null,
     val usedCount: Int? = null,
     val used_count: Int? = null,
-    val isActive: Boolean? = null,
-    val is_active: Boolean? = null,
+    // Backend trả về isActive dưới dạng number (0/1), không phải boolean
+    // Sử dụng Int? để nhận number, sau đó convert sang boolean trong toVoucherModel()
+    val isActive: Int? = null,
+    val is_active: Int? = null,
     val description: String? = null
 ) {
     fun toVoucherModel(): VoucherModel {
@@ -282,7 +284,8 @@ data class VoucherResponse(
             endDate = endDate ?: end_date ?: 0L,
             usageLimit = usageLimit ?: usage_limit ?: 0,
             usedCount = usedCount ?: used_count ?: 0,
-            isActive = isActive ?: (is_active == true) ?: true,
+            // Convert number (0/1) sang boolean: 1 = true, 0 = false
+            isActive = (isActive ?: is_active ?: 1) != 0,
             description = description ?: ""
         )
     }
