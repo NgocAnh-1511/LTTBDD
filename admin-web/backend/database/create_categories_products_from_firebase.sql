@@ -50,7 +50,7 @@ CREATE TABLE `products` (
 
 -- Insert Categories từ Firebase (sử dụng ON DUPLICATE KEY UPDATE để tránh lỗi)
 INSERT INTO `categories` (`id`, `name`, `description`, `imageUrl`, `isActive`) VALUES
-(0, 'Espresso', NULL, NULL, 1),
+(0, 'Esspersso', NULL, NULL, 1),
 (1, 'Cappuccino', NULL, NULL, 1),
 (2, 'Latte', NULL, NULL, 1),
 (3, 'Americano', NULL, NULL, 1),
@@ -66,7 +66,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- Insert Products từ Firebase
 INSERT INTO `products` (`name`, `description`, `price`, `originalPrice`, `imageUrl`, `stock`, `isActive`, `categoryId`) VALUES
--- Category 0: Espresso
+-- Category 0: Esspersso
 ('Mocha Espresso', 'Rich espresso blended with chocolate for a bold, sweet flavor.', 3.80, 3.80, 'https://res.cloudinary.com/dpaovwqxs/image/upload/v1764006330/Espresso-_S%E1%BB%AFa_%C4%91en_v%C3%A0_soclola_cafe_dpjbzt.png', 0, 1, 0),
 ('Citrus Espresso', 'Espresso with a hint of citrus peel for a bright aftertaste.', 3.90, 3.90, 'https://res.cloudinary.com/dpaovwqxs/image/upload/v1764006330/Espresso-_cafe_v%C3%A0_v%E1%BB%8B_cam_raxdee.png', 0, 1, 0),
 ('Light Japanese Espresso', 'Smooth, clean espresso with a gentle roast profile.', 3.50, 3.50, 'https://res.cloudinary.com/dpaovwqxs/image/upload/v1764006331/Espresso-c%C3%A0_ph%C3%AA_xay_m%E1%BB%8Bn_v%C3%A0_n%C6%B0%E1%BB%9Bc_n%C3%B3ng_d%C6%B0%E1%BB%9Bi_%C3%A1p_su%E1%BA%A5t_cao_eukxgy.png', 0, 1, 0),
