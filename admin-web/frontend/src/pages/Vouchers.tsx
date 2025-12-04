@@ -70,8 +70,10 @@ export default function Vouchers() {
       setOpenDialog(false)
       setSnackbar({ open: true, message: 'Voucher created successfully', severity: 'success' })
     },
-    onError: () => {
-      setSnackbar({ open: true, message: 'Failed to create voucher', severity: 'error' })
+    onError: (error: any) => {
+      console.error('Create voucher error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create voucher'
+      setSnackbar({ open: true, message: errorMessage, severity: 'error' })
     },
   })
 
@@ -84,8 +86,27 @@ export default function Vouchers() {
       setSelectedVoucher(null)
       setSnackbar({ open: true, message: 'Voucher updated successfully', severity: 'success' })
     },
-    onError: () => {
-      setSnackbar({ open: true, message: 'Failed to update voucher', severity: 'error' })
+    onError: (error: any) => {
+      console.error('Update voucher error:', error)
+      console.error('Error response:', error?.response?.data)
+      console.error('Error status:', error?.response?.status)
+      
+      // Try to get detailed error message
+      let errorMessage = 'Failed to update voucher'
+      if (error?.response?.data) {
+        const errorData = error.response.data
+        if (errorData.message) {
+          errorMessage = errorData.message
+        } else if (Array.isArray(errorData.message)) {
+          errorMessage = errorData.message.join(', ')
+        } else if (errorData.error) {
+          errorMessage = errorData.error
+        }
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
+      setSnackbar({ open: true, message: errorMessage, severity: 'error' })
     },
   })
 
@@ -97,8 +118,10 @@ export default function Vouchers() {
       setSelectedVoucher(null)
       setSnackbar({ open: true, message: 'Voucher deleted successfully', severity: 'success' })
     },
-    onError: () => {
-      setSnackbar({ open: true, message: 'Failed to delete voucher', severity: 'error' })
+    onError: (error: any) => {
+      console.error('Delete voucher error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete voucher'
+      setSnackbar({ open: true, message: errorMessage, severity: 'error' })
     },
   })
 
@@ -119,18 +142,81 @@ export default function Vouchers() {
 
   const handleOpenEdit = (voucher: any) => {
     const voucherId = voucher.voucherId || voucher.voucher_id || voucher.id
+    
+    // Helper function to safely parse date
+    const parseDate = (dateValue: any): string | undefined => {
+      // Handle null, undefined, or empty values
+      if (dateValue === null || dateValue === undefined || dateValue === '') {
+        return undefined
+      }
+      
+      // Handle string values that might be invalid
+      if (typeof dateValue === 'string') {
+        const trimmed = dateValue.trim()
+        if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === 'Invalid Date' || trimmed.toLowerCase() === 'null' || trimmed === '0') {
+          return undefined
+        }
+      }
+      
+      // Handle number (timestamp) - backend stores dates as bigint timestamps
+      let date: Date
+      if (typeof dateValue === 'number') {
+        // Check if it's a valid timestamp (must be positive and reasonable)
+        if (dateValue <= 0 || isNaN(dateValue) || !isFinite(dateValue)) {
+          return undefined
+        }
+        // Check if timestamp is reasonable (not too far in past or future)
+        // Valid range: between year 1970 and 2100
+        if (dateValue < 0 || dateValue > 4102444800000) {
+          return undefined
+        }
+        date = new Date(dateValue)
+      } else if (typeof dateValue === 'string') {
+        // Try to parse as date string
+        try {
+          date = new Date(dateValue)
+        } catch {
+          return undefined
+        }
+      } else {
+        return undefined
+      }
+      
+      // Check if date is valid
+      if (!date || isNaN(date.getTime()) || date.getTime() === 0) {
+        return undefined
+      }
+      
+      // Final validation - check if date is reasonable
+      const year = date.getFullYear()
+      if (year < 1970 || year > 2100) {
+        return undefined
+      }
+      
+      try {
+        return date.toISOString().split('T')[0]
+      } catch (e) {
+        console.warn('Error converting date to ISO string:', e, dateValue)
+        return undefined
+      }
+    }
+    
+    // Map voucher type - handle AMOUNT as FIXED
+    const rawType = voucher.type || voucher.discountType || voucher.discount_type || 'PERCENT'
+    const mappedType = rawType === 'AMOUNT' ? 'FIXED' : (rawType === 'PERCENT' || rawType === 'FIXED' ? rawType : 'PERCENT')
+    
     setSelectedVoucher({
       id: voucherId,
       code: voucher.code || '',
       name: voucher.name || '',
       description: voucher.description || '',
-      type: voucher.type || voucher.discountType || voucher.discount_type || 'PERCENT',
+      type: mappedType as 'PERCENT' | 'FIXED',
       value: voucher.value || voucher.discountPercent || voucher.discount_percent || voucher.discountAmount || voucher.discount_amount || 0,
       minPurchaseAmount: voucher.minPurchaseAmount || voucher.min_order_amount || voucher.minOrderAmount || 0,
       maxDiscountAmount: voucher.maxDiscountAmount || voucher.max_discount_amount || 0,
       usageLimit: voucher.usageLimit || voucher.usage_limit || 0,
-      startDate: voucher.startDate || voucher.start_date ? new Date(voucher.startDate || voucher.start_date).toISOString().split('T')[0] : undefined,
-      endDate: voucher.endDate || voucher.end_date ? new Date(voucher.endDate || voucher.end_date).toISOString().split('T')[0] : undefined,
+      startDate: parseDate(voucher.startDate || voucher.start_date),
+      endDate: parseDate(voucher.endDate || voucher.end_date),
       isActive: voucher.isActive !== undefined ? voucher.isActive : (voucher.is_active !== undefined ? voucher.is_active : true),
     })
     setOpenDialog(true)
@@ -149,24 +235,69 @@ export default function Vouchers() {
   const handleSave = () => {
     if (!selectedVoucher) return
 
-    const data: any = {
-      code: selectedVoucher.code,
-      name: selectedVoucher.name,
-      description: selectedVoucher.description,
-      type: selectedVoucher.type,
-      value: Number(selectedVoucher.value),
-      minPurchaseAmount: selectedVoucher.minPurchaseAmount ? Number(selectedVoucher.minPurchaseAmount) : undefined,
-      maxDiscountAmount: selectedVoucher.maxDiscountAmount ? Number(selectedVoucher.maxDiscountAmount) : undefined,
-      usageLimit: selectedVoucher.usageLimit ? Number(selectedVoucher.usageLimit) : undefined,
-      isActive: selectedVoucher.isActive,
+    // Validate required fields
+    if (!selectedVoucher.code || !selectedVoucher.code.trim()) {
+      setSnackbar({ open: true, message: 'Code is required', severity: 'error' })
+      return
+    }
+    if (!selectedVoucher.name || !selectedVoucher.name.trim()) {
+      setSnackbar({ open: true, message: 'Name is required', severity: 'error' })
+      return
     }
 
+    // Map FIXED to AMOUNT for backend (backend uses AMOUNT, not FIXED)
+    const backendType = selectedVoucher.type === 'FIXED' ? 'AMOUNT' : selectedVoucher.type
+
+    const data: any = {
+      code: selectedVoucher.code.trim(),
+      name: selectedVoucher.name.trim(),
+      type: backendType,
+      value: Number(selectedVoucher.value),
+      // Convert to boolean (backend expects boolean, not number)
+      isActive: selectedVoucher.isActive !== undefined 
+        ? Boolean(selectedVoucher.isActive) 
+        : true,
+    }
+
+    // Only include description if it has a value
+    if (selectedVoucher.description && selectedVoucher.description.trim() !== '') {
+      data.description = selectedVoucher.description.trim()
+    }
+
+    // Only include optional numeric fields if they have valid values
+    if (selectedVoucher.minPurchaseAmount && Number(selectedVoucher.minPurchaseAmount) > 0) {
+      data.minPurchaseAmount = Number(selectedVoucher.minPurchaseAmount)
+    }
+    if (selectedVoucher.maxDiscountAmount && Number(selectedVoucher.maxDiscountAmount) > 0) {
+      data.maxDiscountAmount = Number(selectedVoucher.maxDiscountAmount)
+    }
+    if (selectedVoucher.usageLimit && Number(selectedVoucher.usageLimit) > 0) {
+      data.usageLimit = Number(selectedVoucher.usageLimit)
+    }
+
+    // Safely convert dates to ISO string (backend expects ISO 8601 string format)
     if (selectedVoucher.startDate) {
-      data.startDate = new Date(selectedVoucher.startDate).toISOString()
+      try {
+        const startDate = new Date(selectedVoucher.startDate)
+        if (!isNaN(startDate.getTime()) && startDate.getTime() > 0) {
+          data.startDate = startDate.toISOString()
+        }
+      } catch (e) {
+        console.error('Invalid start date:', e, selectedVoucher.startDate)
+      }
     }
     if (selectedVoucher.endDate) {
-      data.endDate = new Date(selectedVoucher.endDate).toISOString()
+      try {
+        const endDate = new Date(selectedVoucher.endDate)
+        if (!isNaN(endDate.getTime()) && endDate.getTime() > 0) {
+          data.endDate = endDate.toISOString()
+        }
+      } catch (e) {
+        console.error('Invalid end date:', e, selectedVoucher.endDate)
+      }
     }
+
+    console.log('Saving voucher data:', data)
 
     if (selectedVoucher.id) {
       updateMutation.mutate({ id: selectedVoucher.id, data })
@@ -285,10 +416,12 @@ export default function Vouchers() {
                 const voucherId = voucher.voucherId || voucher.voucher_id || voucher.id || '-'
                 const code = voucher.code || '-'
                 const name = voucher.name || '-'
-                const discountType = voucher.type || voucher.discountType || voucher.discount_type || 'PERCENT'
+                // Map AMOUNT to FIXED for display (backend uses AMOUNT, UI uses FIXED)
+                const rawType = voucher.type || voucher.discountType || voucher.discount_type || 'PERCENT'
+                const discountType = rawType === 'AMOUNT' ? 'FIXED' : rawType
                 const discountPercent = voucher.discountPercent || voucher.discount_percent || 0
                 const discountAmount = voucher.discountAmount || voucher.discount_amount || 0
-                const value = voucher.value || (discountType === 'PERCENT' ? discountPercent : discountAmount)
+                const value = voucher.value || (rawType === 'PERCENT' || rawType === 'AMOUNT' ? (rawType === 'PERCENT' ? discountPercent : discountAmount) : discountPercent)
                 const minOrderAmount = voucher.minPurchaseAmount || voucher.min_order_amount || voucher.minOrderAmount || 0
                 const usedCount = voucher.usedCount || voucher.used_count || 0
                 const usageLimit = voucher.usageLimit || voucher.usage_limit || 0
