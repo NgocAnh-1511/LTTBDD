@@ -120,4 +120,3 @@ Nếu gặp lỗi, kiểm tra:
 2. Browser console (F12) của frontend
 3. Logcat của Android app
 4. Network tab để xem API calls
-
