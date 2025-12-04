@@ -92,7 +92,7 @@ export default function Orders() {
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(`/orders/${id}/status`, null, { params: { status } }),
+      api.patch(`/orders/${id}/status`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       setOpenStatusDialog(false)
