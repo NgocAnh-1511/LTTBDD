@@ -1,137 +1,122 @@
-# Coffee Shop Android App
+# Coffee Shop Project
 
-Ứng dụng Android cho Coffee Shop, kết nối với REST API backend.
+Dự án Coffee Shop gồm 3 phần:
+- **Backend**: NestJS API (Port 3000)
+- **Frontend Admin**: React Admin Panel (Port 3001)
+- **Android App**: Kotlin Android Application
 
-## 📋 Yêu Cầu
+## 📁 Cấu Trúc Dự Án
 
-- **Android Studio**: Arctic Fox trở lên
-- **JDK**: 11+
-- **Backend**: Phải chạy tại http://localhost:3000 (hoặc IP máy tính)
-
-## 🚀 Setup
-
-### Bước 1: Clone và Mở Project
-
-1. Clone repository hoặc copy folder `LTTBDD-main`
-2. Mở **Android Studio**
-3. File > Open > Chọn folder `LTTBDD-main`
-
-### Bước 2: Cấu hình API URL
-
-File: `app/src/main/java/com/example/coffeeshop/Network/ApiClient.kt`
-
-**Cho Android Emulator:**
-```kotlin
-private const val BASE_URL = "http://10.0.2.2:3000/api/"
+```
+.
+├── admin-web/
+│   ├── backend/          # NestJS Backend API
+│   │   ├── src/          # Source code
+│   │   └── database/     # SQL database file
+│   └── frontend/         # React Admin Panel
+│
+└── LTTBDD-main/          # Android Application
+    └── app/
+        └── src/main/
 ```
 
-**Cho Real Device:**
-1. Tìm IP máy tính:
-   - Windows: `ipconfig` trong CMD
-   - Mac/Linux: `ifconfig` trong Terminal
-2. Sửa BASE_URL thành: `http://YOUR_IP:3000/api/`
-   - Ví dụ: `http://192.168.1.100:3000/api/`
-3. Đảm bảo máy tính và điện thoại **cùng mạng WiFi**
+## 🚀 Quick Start
 
-### Bước 3: Sync và Build
+### 1. Setup Database
 
-1. Android Studio sẽ tự động sync Gradle
-2. Nếu có lỗi, click **Sync Project with Gradle Files**
-3. Build project: Build > Make Project
+1. Mở **XAMPP** và start **MySQL**
+2. Mở **phpMyAdmin**: http://localhost/phpmyadmin
+3. Import file: `admin-web/backend/database/database.sql`
 
-### Bước 4: Chạy App
+### 2. Chạy Backend
 
-1. Kết nối emulator hoặc real device
-2. Click **Run** (Shift + F10)
-3. Chọn device và chạy
+**Lưu ý:** Thay `E:\namngu` bằng đường dẫn thực tế của bạn
 
-## ⚙️ Cấu Hình
+```bash
+# Di chuyển đến thư mục backend
+cd E:\namngu\admin-web\backend
 
-### Network Security
+# Hoặc nếu đã ở thư mục gốc:
+cd admin-web\backend
 
-App đã được cấu hình để cho phép HTTP (cleartext) traffic cho development:
-- `AndroidManifest.xml`: `android:usesCleartextTraffic="true"`
-- `network_security_config.xml`: Cho phép cleartext cho localhost
+# Cài đặt và chạy
+npm install
+npm run start:dev
+```
 
-### Dependencies
+Backend: http://localhost:3000/api
 
-App sử dụng:
-- **Retrofit**: REST API client
-- **OkHttp**: HTTP client với logging
-- **Coroutines**: Async operations
-- **Gson**: JSON parsing
+### 3. Chạy Frontend Admin
 
-## 🔧 Troubleshooting
+Mở terminal mới (giữ backend đang chạy):
 
-### App không kết nối được backend
+```bash
+# Di chuyển đến thư mục frontend
+cd E:\namngu\admin-web\frontend
 
-1. **Kiểm tra backend đã chạy:**
-   - Mở browser: http://localhost:3000/api
-   - Phải thấy response hoặc 401 (nếu chưa login)
+# Cài đặt và chạy
+npm install
+npm run dev
+```
 
-2. **Kiểm tra BASE_URL:**
-   - Emulator: `http://10.0.2.2:3000/api/`
-   - Real device: `http://YOUR_IP:3000/api/`
+Admin Panel: http://localhost:3001
 
-3. **Kiểm tra network:**
-   - Real device: Đảm bảo cùng WiFi với máy tính
-   - Firewall: Mở port 3000 hoặc tắt firewall tạm thời
+### 4. Chạy Android App
 
-4. **Xem logs:**
-   - Android Studio > Logcat
-   - Filter: `ApiClient` hoặc `OrderManager`
-   - Tìm lỗi network
+1. Mở **Android Studio**
+2. File > Open > Chọn `LTTBDD-main`
+3. Cấu hình API URL trong `ApiClient.kt`
+4. Run app
 
-### Lỗi CLEARTEXT communication
+## 📖 Chi Tiết Setup
 
-App đã được cấu hình để cho phép HTTP. Nếu vẫn lỗi:
-- Kiểm tra `AndroidManifest.xml` có `usesCleartextTraffic="true"`
-- Kiểm tra `network_security_config.xml` đã được thêm vào manifest
+Xem các file README chi tiết:
+- **Backend + Frontend**: `admin-web/README.md`
+- **Android App**: `LTTBDD-main/README.md`
 
-### Build errors
+## 🔑 Default Credentials
 
-1. **Sync Gradle:**
-   - File > Sync Project with Gradle Files
-
-2. **Clean và Rebuild:**
-   - Build > Clean Project
-   - Build > Rebuild Project
-
-3. **Invalidate Caches:**
-   - File > Invalidate Caches / Restart
-
-## 📱 Test App
-
-### Đăng ký User mới
-1. Mở app
-2. Click "Đăng ký"
-3. Nhập phone number, password
-4. (Optional) Nhập fullName, email
-
-### Đăng nhập
-- Phone: `0846230059`
-- Password: `Nam26122005@`
-
-Hoặc dùng admin:
+**Admin Account:**
 - Phone: `admin`
 - Password: `admin123`
 
-### Tạo đơn hàng
-1. Thêm sản phẩm vào giỏ hàng
-2. Vào giỏ hàng
-3. Click "Thanh toán"
-4. Điền thông tin đơn hàng
-5. Click "Xác nhận thanh toán"
+**Test User:**
+- Phone: `0846230059`
+- Password: `Nam26122005@`
 
 ## 📝 Lưu Ý
 
-1. **Backend phải chạy trước** khi test app
-2. Với **real device**, đảm bảo cùng mạng WiFi
-3. **Firewall** có thể chặn port 3000
-4. Xem logs trong **Logcat** để debug
+1. **Backend phải chạy trước** khi test Frontend hoặc Android
+2. **Database phải được import** trước khi chạy backend
+3. Với **Android real device**, đảm bảo cùng mạng WiFi với máy tính
+4. **Firewall** có thể chặn port 3000, cần mở port
 
-## 🔗 Liên Kết
+## 🌐 Deploy & Phân Phối APK
 
-- Backend API: http://localhost:3000/api
-- Admin Panel: http://localhost:3001
+### ❓ Người khác tải APK có lưu vào Database của tôi không?
 
+**Trả lời:** 
+- ❌ **KHÔNG** nếu backend chỉ chạy localhost (hiện tại)
+- ✅ **CÓ** nếu bạn deploy backend lên server công khai
+
+### 🚀 Để người khác dùng APK và lưu vào database của bạn:
+
+1. **Deploy Backend** lên server công khai (Railway, Render, VPS...)
+2. **Cập nhật BASE_URL** trong Android app thành URL của server
+3. **Build APK release** và phân phối
+
+📖 **Xem hướng dẫn chi tiết:** `LTTBDD-main/DEPLOY_GUIDE.md`
+
+## 🛠️ Tech Stack
+
+- **Backend**: NestJS, TypeORM, MySQL, JWT
+- **Frontend**: React, Material-UI, React Query
+- **Android**: Kotlin, Retrofit, OkHttp, Coroutines
+
+## 📞 Support
+
+Nếu gặp lỗi, kiểm tra:
+1. Console logs của backend
+2. Browser console (F12) của frontend
+3. Logcat của Android app
+4. Network tab để xem API calls
