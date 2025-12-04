@@ -21,18 +21,16 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material'
-import {
-  PeopleIcon,
-  ShoppingCartIcon,
-  LocalOfferIcon,
-  InventoryIcon,
-  AttachMoneyIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
-  CheckCircleIcon,
-  PendingIcon,
-  RefreshIcon,
-} from '@mui/icons-material'
+import PeopleIcon from '@mui/icons-material/People'
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
+import LocalOfferIcon from '@mui/icons-material/LocalOffer'
+import InventoryIcon from '@mui/icons-material/Inventory'
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import TrendingDownIcon from '@mui/icons-material/TrendingDown'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import PendingIcon from '@mui/icons-material/Pending'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import { format } from 'date-fns'
 import api from '../services/api'
 
