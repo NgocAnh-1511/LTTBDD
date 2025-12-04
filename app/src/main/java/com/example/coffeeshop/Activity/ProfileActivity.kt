@@ -9,11 +9,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.bumptech.glide.Glide
 import com.example.coffeeshop.Manager.OrderManager
 import com.example.coffeeshop.Manager.UserManager
 import com.example.coffeeshop.R
 import com.example.coffeeshop.Utils.dpToPx
+import com.example.coffeeshop.Utils.formatVND
 import com.example.coffeeshop.databinding.ActivityProfileBinding
 import java.io.File
 import java.util.Locale
@@ -44,10 +47,12 @@ class ProfileActivity : AppCompatActivity() {
         // Không bắt buộc đăng nhập, nhưng nếu chưa đăng nhập thì hiển thị thông báo
         if (!userManager.isLoggedIn()) {
             binding.userNameTxt.text = "Khách"
-            binding.userEmailTxt.text = "Vui lòng đăng nhập để xem thông tin"
+            binding.katPointsDetailTxt.text = "0 KAT"
+            binding.katRankInfoTxt.text = "Đăng nhập để tích lũy KAT"
+            // Hiển thị thống kê = 0
             binding.totalOrdersTxt.text = "0"
             binding.completedOrdersTxt.text = "0"
-            binding.totalSpentTxt.text = "$0.00"
+            binding.totalSpentTxt.text = formatVND(0.0)
         } else {
             loadUserInfo()
             loadStatistics()
@@ -55,6 +60,7 @@ class ProfileActivity : AppCompatActivity() {
         
         updateLogoutButton()
         setupClickListeners()
+        updateAdminSection()
     }
 
     override fun onResume() {
@@ -65,40 +71,46 @@ class ProfileActivity : AppCompatActivity() {
             loadStatistics()
         } else {
             binding.userNameTxt.text = "Khách"
-            binding.userEmailTxt.text = "Vui lòng đăng nhập để xem thông tin"
+            binding.katPointsDetailTxt.text = "0 KAT"
+            binding.katRankInfoTxt.text = "Đăng nhập để tích lũy KAT"
+            // Hiển thị thống kê = 0
             binding.totalOrdersTxt.text = "0"
             binding.completedOrdersTxt.text = "0"
-            binding.totalSpentTxt.text = "$0.00"
+            binding.totalSpentTxt.text = formatVND(0.0)
         }
         updateLogoutButton()
+        updateAdminSection()
+    }
+    
+    private fun updateAdminSection() {
+        if (userManager.isLoggedIn() && userManager.isAdmin()) {
+            binding.adminSectionCard.visibility = View.VISIBLE
+        } else {
+            binding.adminSectionCard.visibility = View.GONE
+        }
     }
     
     private fun updateLogoutButton() {
         if (userManager.isLoggedIn()) {
             // Hiển thị "Đăng xuất" khi đã đăng nhập
-            binding.logoutBtnText.text = "Đăng xuất"
+            binding.logoutBtn.text = "Đăng xuất"
         } else {
             // Hiển thị "Đăng nhập/Đăng ký" khi chưa đăng nhập
-            binding.logoutBtnText.text = "Đăng nhập/Đăng ký"
+            binding.logoutBtn.text = "Đăng nhập/Đăng ký"
         }
     }
 
     private fun loadUserInfo() {
         val user = userManager.getCurrentUser()
         if (user != null) {
-            // Hiển thị tên (nếu chưa có thì hiển thị số điện thoại)
-            binding.userNameTxt.text = if (user.fullName.isNotEmpty()) {
+            val displayName = if (user.fullName.isNotEmpty()) {
                 user.fullName
             } else {
                 user.phoneNumber
             }
             
-            // Hiển thị email
-            binding.userEmailTxt.text = if (user.email.isNotEmpty()) {
-                user.email
-            } else {
-                user.phoneNumber
-            }
+            // Hiển thị tên
+            binding.userNameTxt.text = displayName
             
             // Load và hiển thị ảnh đại diện
             if (user.avatarPath.isNotEmpty()) {
@@ -114,18 +126,36 @@ class ProfileActivity : AppCompatActivity() {
             } else {
                 binding.ivProfileAvatar.setImageResource(R.drawable.profile)
             }
+        } else {
+            binding.userNameTxt.text = "Khách"
         }
     }
 
     private fun loadStatistics() {
-        val orders = orderManager.getAllOrders()
+        lifecycleScope.launch {
+            val orders = orderManager.getAllOrders()
         val totalOrders = orders.size
-        val completedOrders = orders.count { it.status.equals("Completed", ignoreCase = true) }
-        val totalSpent = orders.sumOf { it.totalPrice }
+        val completedOrders = orders.filter { it.status.equals("Completed", ignoreCase = true) }
+        val totalSpent = completedOrders.sumOf { it.totalPrice }
         
+        // Hiển thị thống kê
         binding.totalOrdersTxt.text = totalOrders.toString()
-        binding.completedOrdersTxt.text = completedOrders.toString()
-        binding.totalSpentTxt.text = "$${String.format(Locale.getDefault(), "%.2f", totalSpent)}"
+        binding.completedOrdersTxt.text = completedOrders.size.toString()
+        binding.totalSpentTxt.text = formatVND(totalSpent)
+        
+        // Tính KAT points (1 KAT = 10.000 VND)
+        val katPoints = (totalSpent / 10000).toInt()
+        binding.katPointsDetailTxt.text = "$katPoints KAT"
+        
+        // Tính hạng thành viên
+        val rankInfo = when {
+            katPoints >= 500 -> "Bạn đang ở hạng GOLD"
+            katPoints >= 200 -> "Bạn đang ở hạng SILVER"
+            katPoints >= 100 -> "Cần thêm ${200 - katPoints} KAT để lên hạng SILVER"
+            else -> "Cần thêm ${100 - katPoints} KAT để lên hạng SILVER"
+        }
+        binding.katRankInfoTxt.text = rankInfo
+        }
     }
 
     private fun setupClickListeners() {
@@ -182,22 +212,59 @@ class ProfileActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // Chỉ hiển thị nút admin nếu user là admin
-        if (userManager.isAdmin()) {
-            binding.adminOrderBtn.visibility = View.VISIBLE
-            binding.adminOrderBtn.setOnClickListener {
+        binding.vouchersBtn.setOnClickListener {
+            val intent = Intent(this, VoucherListActivity::class.java)
+            startActivity(intent)
+        }
+
+        // List view click listeners (duplicate for both grid and list views)
+        binding.myOrdersBtnList.setOnClickListener {
+            if (!userManager.isLoggedIn()) {
+                Toast.makeText(this, "Vui lòng đăng nhập để xem đơn hàng", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, LoginActivity::class.java)
+                startActivity(intent)
+            } else {
+                val intent = Intent(this, OrderActivity::class.java)
+                startActivity(intent)
+            }
+        }
+
+        binding.addressBtnInProfileList.setOnClickListener {
+            if (!userManager.isLoggedIn()) {
+                Toast.makeText(this, "Vui lòng đăng nhập để quản lý địa chỉ", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, LoginActivity::class.java)
+                startActivity(intent)
+            } else {
+                val intent = Intent(this, AddressListActivity::class.java)
+                startActivity(intent)
+            }
+        }
+
+        binding.wishlistBtnInProfileList.setOnClickListener {
+            val intent = Intent(this, WishlistActivity::class.java)
+            startActivity(intent)
+        }
+
+        binding.vouchersBtnList.setOnClickListener {
+            val intent = Intent(this, VoucherListActivity::class.java)
+            startActivity(intent)
+        }
+
+        // Admin functions (only visible for admin users)
+        if (userManager.isLoggedIn() && userManager.isAdmin()) {
+            binding.adminSectionCard.visibility = View.VISIBLE
+            
+            binding.adminOrderBtnList.setOnClickListener {
                 val intent = Intent(this, AdminOrderActivity::class.java)
                 startActivity(intent)
             }
             
-            binding.revenueReportBtn.visibility = View.VISIBLE
-            binding.revenueReportBtn.setOnClickListener {
-                val intent = Intent(this, RevenueReportActivity::class.java)
+            binding.adminVoucherBtnList.setOnClickListener {
+                val intent = Intent(this, AdminVoucherActivity::class.java)
                 startActivity(intent)
             }
         } else {
-            binding.adminOrderBtn.visibility = View.GONE
-            binding.revenueReportBtn.visibility = View.GONE
+            binding.adminSectionCard.visibility = View.GONE
         }
 
         binding.logoutBtn.setOnClickListener {
@@ -209,10 +276,8 @@ class ProfileActivity : AppCompatActivity() {
                 
                 // Chuyển về profile khách
                 binding.userNameTxt.text = "Khách"
-                binding.userEmailTxt.text = "Vui lòng đăng nhập để xem thông tin"
-                binding.totalOrdersTxt.text = "0"
-                binding.completedOrdersTxt.text = "0"
-                binding.totalSpentTxt.text = "$0.00"
+                binding.katPointsDetailTxt.text = "0 KAT"
+                binding.katRankInfoTxt.text = "Đăng nhập để tích lũy KAT"
                 updateLogoutButton()
             } else {
                 // Chưa đăng nhập, chuyển đến màn hình đăng nhập/đăng ký

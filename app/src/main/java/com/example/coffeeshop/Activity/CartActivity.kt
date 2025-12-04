@@ -11,6 +11,7 @@ import com.example.coffeeshop.Adapter.CartAdapter
 import com.example.coffeeshop.Manager.CartManager
 import com.example.coffeeshop.Manager.UserManager
 import com.example.coffeeshop.Utils.dpToPx
+import com.example.coffeeshop.Utils.formatVND
 import com.example.coffeeshop.databinding.ActivityCartBinding
 
 class CartActivity : AppCompatActivity() {
@@ -108,7 +109,7 @@ class CartActivity : AppCompatActivity() {
 
     private fun updateTotalPrice() {
         val total = cartManager.getTotalPrice()
-        binding.totalPriceTxt.text = "$${String.format("%.2f", total)}"
+        binding.totalPriceTxt.text = formatVND(total)
     }
 
     override fun onResume() {

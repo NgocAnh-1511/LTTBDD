@@ -4,7 +4,10 @@ import android.content.Context
 import android.util.Log
 import com.example.coffeeshop.Database.DatabaseHelper
 import com.example.coffeeshop.Domain.*
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.*
@@ -26,6 +29,14 @@ class FirebaseSyncManager(private val context: Context) {
     
     private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val gson = Gson()
+    
+    // Lưu trữ các listeners để có thể remove sau
+    private var userListener: ValueEventListener? = null
+    private var cartListener: ValueEventListener? = null
+    private var ordersListener: ValueEventListener? = null
+    private var addressesListener: ValueEventListener? = null
+    private var wishlistListener: ValueEventListener? = null
+    private var currentUserId: String? = null
     
     companion object {
         private const val TAG = "FirebaseSyncManager"
@@ -129,14 +140,14 @@ class FirebaseSyncManager(private val context: Context) {
             val snapshot = userRef.get().await()
             
             if (snapshot.exists()) {
-                val userIdValue = snapshot.child("userId").getValue(String::class.java) ?: ""
-                val phoneNumber = snapshot.child("phoneNumber").getValue(String::class.java) ?: ""
-                val fullName = snapshot.child("fullName").getValue(String::class.java) ?: ""
-                val email = snapshot.child("email").getValue(String::class.java) ?: ""
-                val password = snapshot.child("password").getValue(String::class.java) ?: ""
-                val avatarPath = snapshot.child("avatarPath").getValue(String::class.java) ?: ""
-                val createdAt = snapshot.child("createdAt").getValue(Long::class.java) ?: System.currentTimeMillis()
-                val isAdmin = snapshot.child("isAdmin").getValue(Boolean::class.java) ?: false
+                val userIdValue = getStringValue(snapshot, "userId")
+                val phoneNumber = getStringValue(snapshot, "phoneNumber")
+                val fullName = getStringValue(snapshot, "fullName")
+                val email = getStringValue(snapshot, "email")
+                val password = getStringValue(snapshot, "password")
+                val avatarPath = getStringValue(snapshot, "avatarPath")
+                val createdAt = getLongValue(snapshot, "createdAt", System.currentTimeMillis())
+                val isAdmin = getBooleanValue(snapshot, "isAdmin")
                 
                 val user = UserModel(
                     userId = userIdValue,
@@ -149,8 +160,9 @@ class FirebaseSyncManager(private val context: Context) {
                     isAdmin = isAdmin
                 )
                 
-                val userManager = UserManager(context)
-                userManager.saveUser(user)
+                // User đã được lưu qua API, không cần saveUser nữa
+                // val userManager = UserManager(context)
+                // userManager.saveUser(user) // Removed - using API now
                 Log.d(TAG, "User synced from Firebase: $userId")
                 return@withContext true
             }
@@ -498,25 +510,19 @@ class FirebaseSyncManager(private val context: Context) {
                     var foundUser: UserModel? = null
                     for (child in allUsersSnapshot.children) {
                         try {
-                            val phone = child.child("phoneNumber").getValue(String::class.java) ?: ""
+                            val phone = getStringValue(child, "phoneNumber")
                             val phoneTrimmed = phone.trim()
                             
                             Log.d(TAG, "Checking user - phone in DB: '$phone', trimmed: '$phoneTrimmed', searching for: '$trimmedPhone'")
                             
                             if (phoneTrimmed == trimmedPhone) {
-                                val userId = child.child("userId").getValue(String::class.java) ?: ""
-                                val fullName = child.child("fullName").getValue(String::class.java) ?: ""
-                                val email = child.child("email").getValue(String::class.java) ?: ""
-                                val password = child.child("password").getValue(String::class.java) ?: ""
-                                val avatarPath = child.child("avatarPath").getValue(String::class.java) ?: ""
-                                val isAdmin = child.child("isAdmin").getValue(Boolean::class.java) ?: false
-                                val createdAtValue = child.child("createdAt").getValue(Any::class.java)
-                                val createdAt = when (createdAtValue) {
-                                    is Long -> createdAtValue
-                                    is Number -> createdAtValue.toLong()
-                                    is String -> createdAtValue.toLongOrNull() ?: System.currentTimeMillis()
-                                    else -> System.currentTimeMillis()
-                                }
+                                val userId = getStringValue(child, "userId")
+                                val fullName = getStringValue(child, "fullName")
+                                val email = getStringValue(child, "email")
+                                val password = getStringValue(child, "password")
+                                val avatarPath = getStringValue(child, "avatarPath")
+                                val isAdmin = getBooleanValue(child, "isAdmin")
+                                val createdAt = getLongValue(child, "createdAt", System.currentTimeMillis())
                                 
                                 Log.d(TAG, "✓ Found matching user!")
                                 Log.d(TAG, "  - userId: $userId")
@@ -581,9 +587,281 @@ class FirebaseSyncManager(private val context: Context) {
     }
     
     /**
-     * Hủy tất cả các coroutines đang chạy
+     * Bắt đầu lắng nghe thay đổi realtime từ Firebase và đồng bộ về SQLite
+     * Chỉ nên gọi khi user đã đăng nhập
+     */
+    fun startRealtimeSync(userId: String) {
+        if (currentUserId == userId) {
+            // Đã đang lắng nghe cho user này rồi
+            return
+        }
+        
+        // Dừng listeners cũ nếu có
+        stopRealtimeSync()
+        
+        currentUserId = userId
+        Log.d(TAG, "Starting realtime sync for user: $userId")
+        
+        // Lắng nghe thay đổi User
+        startUserRealtimeSync(userId)
+        
+        // Lắng nghe thay đổi Cart
+        startCartRealtimeSync(userId)
+        
+        // Lắng nghe thay đổi Orders
+        startOrdersRealtimeSync(userId)
+        
+        // Lắng nghe thay đổi Addresses
+        startAddressesRealtimeSync(userId)
+        
+        // Lắng nghe thay đổi Wishlist
+        startWishlistRealtimeSync(userId)
+    }
+    
+    /**
+     * Dừng lắng nghe thay đổi realtime từ Firebase
+     */
+    fun stopRealtimeSync() {
+        val userId = currentUserId
+        Log.d(TAG, "Stopping realtime sync for user: $userId")
+        
+        // Remove User listener
+        userListener?.let {
+            try {
+                if (userId != null) {
+                    firebaseDatabase.getReference("users").child(userId).removeEventListener(it)
+                } else {
+                    firebaseDatabase.getReference("users").removeEventListener(it)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error removing user listener", e)
+            }
+        }
+        userListener = null
+        
+        // Remove Cart listener
+        cartListener?.let {
+            try {
+                if (userId != null) {
+                    firebaseDatabase.getReference("carts").child(userId).removeEventListener(it)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error removing cart listener", e)
+            }
+        }
+        cartListener = null
+        
+        // Remove Orders listener
+        ordersListener?.let {
+            try {
+                if (userId != null) {
+                    firebaseDatabase.getReference("orders").child(userId).removeEventListener(it)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error removing orders listener", e)
+            }
+        }
+        ordersListener = null
+        
+        // Remove Addresses listener
+        addressesListener?.let {
+            try {
+                if (userId != null) {
+                    firebaseDatabase.getReference("addresses").child(userId).removeEventListener(it)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error removing addresses listener", e)
+            }
+        }
+        addressesListener = null
+        
+        // Remove Wishlist listener
+        wishlistListener?.let {
+            try {
+                if (userId != null) {
+                    firebaseDatabase.getReference("wishlist").child(userId).removeEventListener(it)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error removing wishlist listener", e)
+            }
+        }
+        wishlistListener = null
+        
+        currentUserId = null
+    }
+    
+    /**
+     * Lắng nghe thay đổi User từ Firebase (realtime)
+     */
+    private fun startUserRealtimeSync(userId: String) {
+        val userRef = firebaseDatabase.getReference("users").child(userId)
+        
+        userListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                // Chạy trên background thread để tránh ANR
+                syncScope.launch {
+                    try {
+                        if (snapshot.exists()) {
+                            syncUserFromFirebase(userId)
+                            Log.d(TAG, "User data changed on Firebase, synced to SQLite")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error syncing user from Firebase (realtime)", e)
+                    }
+                }
+            }
+            
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "User listener cancelled: ${error.message}")
+            }
+        }
+        
+        userRef.addValueEventListener(userListener!!)
+    }
+    
+    /**
+     * Lắng nghe thay đổi Cart từ Firebase (realtime)
+     */
+    private fun startCartRealtimeSync(userId: String) {
+        val cartRef = firebaseDatabase.getReference("carts").child(userId)
+        
+        cartListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                // Chạy trên background thread để tránh ANR
+                syncScope.launch {
+                    try {
+                        syncCartFromFirebase(userId)
+                        Log.d(TAG, "Cart data changed on Firebase, synced to SQLite")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error syncing cart from Firebase (realtime)", e)
+                    }
+                }
+            }
+            
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "Cart listener cancelled: ${error.message}")
+            }
+        }
+        
+        cartRef.addValueEventListener(cartListener!!)
+    }
+    
+    /**
+     * Lắng nghe thay đổi Orders từ Firebase (realtime)
+     */
+    private fun startOrdersRealtimeSync(userId: String) {
+        val ordersRef = firebaseDatabase.getReference("orders").child(userId)
+        
+        ordersListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                // Chạy trên background thread để tránh ANR
+                syncScope.launch {
+                    try {
+                        syncOrdersFromFirebase(userId)
+                        Log.d(TAG, "Orders data changed on Firebase, synced to SQLite")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error syncing orders from Firebase (realtime)", e)
+                    }
+                }
+            }
+            
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "Orders listener cancelled: ${error.message}")
+            }
+        }
+        
+        ordersRef.addValueEventListener(ordersListener!!)
+    }
+    
+    /**
+     * Lắng nghe thay đổi Addresses từ Firebase (realtime)
+     */
+    private fun startAddressesRealtimeSync(userId: String) {
+        val addressesRef = firebaseDatabase.getReference("addresses").child(userId)
+        
+        addressesListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                // Chạy trên background thread để tránh ANR
+                syncScope.launch {
+                    try {
+                        syncAddressesFromFirebase(userId)
+                        Log.d(TAG, "Addresses data changed on Firebase, synced to SQLite")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error syncing addresses from Firebase (realtime)", e)
+                    }
+                }
+            }
+            
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "Addresses listener cancelled: ${error.message}")
+            }
+        }
+        
+        addressesRef.addValueEventListener(addressesListener!!)
+    }
+    
+    /**
+     * Lắng nghe thay đổi Wishlist từ Firebase (realtime)
+     */
+    private fun startWishlistRealtimeSync(userId: String) {
+        val wishlistRef = firebaseDatabase.getReference("wishlist").child(userId)
+        
+        wishlistListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                // Chạy trên background thread để tránh ANR
+                syncScope.launch {
+                    try {
+                        syncWishlistFromFirebase(userId)
+                        Log.d(TAG, "Wishlist data changed on Firebase, synced to SQLite")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error syncing wishlist from Firebase (realtime)", e)
+                    }
+                }
+            }
+            
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "Wishlist listener cancelled: ${error.message}")
+            }
+        }
+        
+        wishlistRef.addValueEventListener(wishlistListener!!)
+    }
+    
+    /**
+     * Hủy tất cả các coroutines đang chạy và dừng listeners
      */
     fun cancel() {
+        stopRealtimeSync()
         syncScope.cancel()
+    }
+
+    private fun getStringValue(snapshot: DataSnapshot, key: String): String {
+        val value = snapshot.child(key).getValue(Any::class.java)
+        return when (value) {
+            is String -> value
+            is Number -> value.toString()
+            is Boolean -> value.toString()
+            else -> ""
+        }
+    }
+
+    private fun getBooleanValue(snapshot: DataSnapshot, key: String): Boolean {
+        val value = snapshot.child(key).getValue(Any::class.java)
+        return when (value) {
+            is Boolean -> value
+            is Number -> value.toInt() != 0
+            is String -> value.equals("true", true) || value == "1"
+            else -> false
+        }
+    }
+
+    private fun getLongValue(snapshot: DataSnapshot, key: String, defaultValue: Long): Long {
+        val value = snapshot.child(key).getValue(Any::class.java) ?: return defaultValue
+        return when (value) {
+            is Long -> value
+            is Number -> value.toLong()
+            is String -> value.toLongOrNull() ?: defaultValue
+            else -> defaultValue
+        }
     }
 }

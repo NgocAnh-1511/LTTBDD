@@ -13,11 +13,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.example.coffeeshop.Manager.UserManager
 import com.example.coffeeshop.R
 import com.example.coffeeshop.Utils.ValidationUtils
 import com.example.coffeeshop.databinding.ActivityAccountInfoBinding
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 
@@ -61,11 +63,17 @@ class AccountInfoActivity : AppCompatActivity() {
                         // Cập nhật user với avatar mới
                         val currentUser = userManager.getCurrentUser()
                         if (currentUser != null) {
-                            val updatedUser = currentUser.copy(avatarPath = savedPath)
-                            userManager.saveUser(updatedUser)
-                            // Hiển thị ảnh đã chọn
-                            loadAvatar(savedPath)
-                            Toast.makeText(this, "Đã cập nhật ảnh đại diện!", Toast.LENGTH_SHORT).show()
+                            lifecycleScope.launch {
+                                val success = userManager.updateUser(
+                                    currentUser.userId,
+                                    avatarPath = savedPath
+                                )
+                                if (success) {
+                                    // Hiển thị ảnh đã chọn
+                                    loadAvatar(savedPath)
+                                    Toast.makeText(this@AccountInfoActivity, "Đã cập nhật ảnh đại diện!", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -281,11 +289,16 @@ class AccountInfoActivity : AppCompatActivity() {
                 
                 // Cập nhật
                 val newFullName = "$newLastName $newFirstName"
-                val updatedUser = currentUser.copy(fullName = newFullName)
-                userManager.saveUser(updatedUser)
-                
-                Toast.makeText(this, "Cập nhật tên thành công!", Toast.LENGTH_SHORT).show()
-                loadUserInfo()
+                lifecycleScope.launch {
+                    val success = userManager.updateUser(
+                        currentUser.userId,
+                        fullName = newFullName
+                    )
+                    if (success) {
+                        Toast.makeText(this@AccountInfoActivity, "Cập nhật tên thành công!", Toast.LENGTH_SHORT).show()
+                        loadUserInfo()
+                    }
+                }
             }
             .setNegativeButton("Hủy", null)
             .show()
@@ -314,11 +327,16 @@ class AccountInfoActivity : AppCompatActivity() {
                 }
                 
                 // Cập nhật
-                val updatedUser = currentUser.copy(email = newEmail)
-                userManager.saveUser(updatedUser)
-                
-                Toast.makeText(this, "Cập nhật email thành công!", Toast.LENGTH_SHORT).show()
-                loadUserInfo()
+                lifecycleScope.launch {
+                    val success = userManager.updateUser(
+                        currentUser.userId,
+                        email = newEmail
+                    )
+                    if (success) {
+                        Toast.makeText(this@AccountInfoActivity, "Cập nhật email thành công!", Toast.LENGTH_SHORT).show()
+                        loadUserInfo()
+                    }
+                }
             }
             .setNegativeButton("Hủy", null)
             .show()

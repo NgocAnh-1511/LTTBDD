@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.coffeeshop.Activity.DetailActivity
 import com.example.coffeeshop.Domain.ItemsModel
+import com.example.coffeeshop.Utils.formatVND
 import com.example.coffeeshop.databinding.ViewholderPopularBinding
 import com.google.gson.Gson
 
@@ -37,7 +38,7 @@ RecyclerView.Adapter<PopularAdapter.ViewHolder>() {
     override fun onBindViewHolder(holder: PopularAdapter.ViewHolder, position: Int) {
         val item = items[position]
         holder.binding.titleTxt.text = item.title
-        holder.binding.priceTxt.text="$"+item.price.toString()
+        holder.binding.priceTxt.text = formatVND(item.price)
         holder.binding.subtitleTxt.text = item.extra.toString()
 
         Glide.with(context)

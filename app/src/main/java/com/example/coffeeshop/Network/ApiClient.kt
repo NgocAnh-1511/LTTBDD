@@ -9,18 +9,45 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    private const val BASE_URL = "http://10.0.2.2:3000/api/" // Android emulator localhost
-    // For real device, use your computer's IP: "http://192.168.x.x:3000/api/"
+    // Default URL - Sửa đây khi deploy lên server công khai
+    // Ví dụ: "https://your-backend.railway.app/api/"
+    private const val DEFAULT_BASE_URL = "https://lttbdd-production.up.railway.app/api/" // Android emulator localhost
+    // For real device on same WiFi: "http://192.168.x.x:3000/api/"
+    // For production: "https://your-backend-domain.com/api/"
+    
+    private const val PREF_BASE_URL = "api_base_url"
     
     init {
-        android.util.Log.d("ApiClient", "API Base URL: $BASE_URL")
+        android.util.Log.d("ApiClient", "API Base URL: $DEFAULT_BASE_URL")
     }
     
     private var retrofit: Retrofit? = null
     private var apiService: ApiService? = null
     
+    /**
+     * Lấy BASE_URL từ SharedPreferences hoặc dùng DEFAULT_BASE_URL
+     * Cho phép cấu hình URL động nếu cần
+     */
+    private fun getBaseUrl(context: Context): String {
+        val prefs: SharedPreferences = context.getSharedPreferences("CoffeeShopPrefs", Context.MODE_PRIVATE)
+        return prefs.getString(PREF_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
+    }
+    
+    /**
+     * Set custom API URL (cho phép người dùng cấu hình)
+     */
+    fun setBaseUrl(context: Context, url: String) {
+        val prefs: SharedPreferences = context.getSharedPreferences("CoffeeShopPrefs", Context.MODE_PRIVATE)
+        prefs.edit().putString(PREF_BASE_URL, url).apply()
+        // Reset retrofit instance when URL changes
+        retrofit = null
+        apiService = null
+        android.util.Log.d("ApiClient", "API Base URL updated to: $url")
+    }
+    
     fun getApiService(context: Context): ApiService {
         if (apiService == null) {
+            val baseUrl = getBaseUrl(context)
             val loggingInterceptor = HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.BODY
             }
@@ -41,12 +68,13 @@ object ApiClient {
                 .build()
             
             retrofit = Retrofit.Builder()
-                .baseUrl(BASE_URL)
+                .baseUrl(baseUrl)
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
             
             apiService = retrofit!!.create(ApiService::class.java)
+            android.util.Log.d("ApiClient", "Retrofit initialized with URL: $baseUrl")
         }
         return apiService!!
     }
@@ -64,12 +92,6 @@ object ApiClient {
     fun clearToken(context: Context) {
         val prefs: SharedPreferences = context.getSharedPreferences("CoffeeShopPrefs", Context.MODE_PRIVATE)
         prefs.edit().remove("auth_token").apply()
-    }
-    
-    fun setBaseUrl(url: String) {
-        // Reset retrofit instance when URL changes
-        retrofit = null
-        apiService = null
     }
 }
 

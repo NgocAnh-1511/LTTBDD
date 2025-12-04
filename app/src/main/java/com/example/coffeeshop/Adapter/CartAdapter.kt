@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.coffeeshop.Domain.CartModel
 import com.example.coffeeshop.databinding.ViewholderCartBinding
+import com.example.coffeeshop.Utils.formatVND
 import java.util.Locale
 
 class CartAdapter(
@@ -38,7 +39,7 @@ class CartAdapter(
 
         holder.binding.itemTitle.text = item.title
         val totalPrice = cartItem.getTotalPrice()
-        holder.binding.itemPrice.text = "$${String.format(Locale.getDefault(), "%.2f", totalPrice)}"
+        holder.binding.itemPrice.text = formatVND(totalPrice)
         holder.binding.quantityTxt.text = cartItem.quantity.toString()
 
         // Load image

@@ -13,6 +13,10 @@
     <color name="logoBackground">#FDF1DB</color>
     <color name="darkOrange">#D2691E</color>
     <color name="menuDivider">#E0E0E0</color>
-
+    <color name="lightPurple">#E8D5FF</color>
+    <color name="purple">#9B59B6</color>
+    <color name="darkPurple">#7D3C98</color>
+    <color name="teal">#16A085</color>
+    <color name="darkTeal">#138D75</color>
 
 </resources>

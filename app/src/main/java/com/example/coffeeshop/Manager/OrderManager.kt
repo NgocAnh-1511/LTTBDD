@@ -46,9 +46,12 @@ class OrderManager(private val context: Context) {
             val token = ApiClient.getToken(context)
             if (token == null) {
                 android.util.Log.e("OrderManager", "Token is null - user not authenticated")
+                android.util.Log.e("OrderManager", "User needs to login again")
                 return@withContext null
             }
             android.util.Log.d("OrderManager", "Token exists: ${token.take(20)}...")
+            android.util.Log.d("OrderManager", "Full token length: ${token.length}")
+            android.util.Log.d("OrderManager", "Token preview: ${token.take(50)}...")
             
             // Convert items to OrderItemRequest
             val orderItems = items.map { cartItem ->
@@ -72,9 +75,14 @@ class OrderManager(private val context: Context) {
             )
             
             android.util.Log.d("OrderManager", "Sending create order request to API...")
+            android.util.Log.d("OrderManager", "Request body: ${gson.toJson(request)}")
+            android.util.Log.d("OrderManager", "Authorization header: Bearer ${token.take(20)}...")
+            
             val response = apiService.createOrder("Bearer $token", request)
             
             android.util.Log.d("OrderManager", "Create order response code: ${response.code()}")
+            android.util.Log.d("OrderManager", "Response isSuccessful: ${response.isSuccessful}")
+            android.util.Log.d("OrderManager", "Response body is null: ${response.body() == null}")
             
             if (response.isSuccessful && response.body() != null) {
                 val orderResponse = response.body()!!
@@ -87,6 +95,7 @@ class OrderManager(private val context: Context) {
                     "Cannot read error body: ${e.message}"
                 }
                 android.util.Log.e("OrderManager", "Create order failed: ${response.code()} - $errorBody")
+                android.util.Log.e("OrderManager", "Response headers: ${response.headers()}")
                 return@withContext null
             }
         } catch (e: java.net.UnknownHostException) {
