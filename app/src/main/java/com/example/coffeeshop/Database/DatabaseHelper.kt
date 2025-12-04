@@ -12,7 +12,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
 ) {
     companion object {
         private const val DATABASE_NAME = "CoffeeShopDB"
-        private const val DATABASE_VERSION = 5  // Tăng version để thêm cột is_admin
+        private const val DATABASE_VERSION = 8  // Version 8: Add vouchers table
 
         // Table Users
         const val TABLE_USERS = "users"
@@ -63,6 +63,22 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         const val COL_WISHLIST_USER_ID = "user_id"  // Thêm cột user_id
         const val COL_WISHLIST_ITEM_TITLE = "item_title"
         const val COL_WISHLIST_ITEM_JSON = "item_json"
+
+        // Table Vouchers
+        const val TABLE_VOUCHERS = "vouchers"
+        const val COL_VOUCHER_ID = "voucher_id"
+        const val COL_VOUCHER_CODE = "code"
+        const val COL_VOUCHER_DISCOUNT_PERCENT = "discount_percent"
+        const val COL_VOUCHER_DISCOUNT_AMOUNT = "discount_amount"
+        const val COL_VOUCHER_DISCOUNT_TYPE = "discount_type"
+        const val COL_VOUCHER_MIN_ORDER_AMOUNT = "min_order_amount"
+        const val COL_VOUCHER_MAX_DISCOUNT_AMOUNT = "max_discount_amount"
+        const val COL_VOUCHER_START_DATE = "start_date"
+        const val COL_VOUCHER_END_DATE = "end_date"
+        const val COL_VOUCHER_USAGE_LIMIT = "usage_limit"
+        const val COL_VOUCHER_USED_COUNT = "used_count"
+        const val COL_VOUCHER_IS_ACTIVE = "is_active"
+        const val COL_VOUCHER_DESCRIPTION = "description"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -133,23 +149,119 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
             )
         """.trimIndent()
 
+        // Create Vouchers table
+        val createVouchersTable = """
+            CREATE TABLE $TABLE_VOUCHERS (
+                $COL_VOUCHER_ID TEXT PRIMARY KEY,
+                $COL_VOUCHER_CODE TEXT NOT NULL UNIQUE,
+                $COL_VOUCHER_DISCOUNT_PERCENT REAL DEFAULT 0,
+                $COL_VOUCHER_DISCOUNT_AMOUNT REAL DEFAULT 0,
+                $COL_VOUCHER_DISCOUNT_TYPE TEXT NOT NULL DEFAULT 'PERCENT',
+                $COL_VOUCHER_MIN_ORDER_AMOUNT REAL DEFAULT 0,
+                $COL_VOUCHER_MAX_DISCOUNT_AMOUNT REAL DEFAULT 0,
+                $COL_VOUCHER_START_DATE INTEGER NOT NULL,
+                $COL_VOUCHER_END_DATE INTEGER NOT NULL,
+                $COL_VOUCHER_USAGE_LIMIT INTEGER DEFAULT 0,
+                $COL_VOUCHER_USED_COUNT INTEGER DEFAULT 0,
+                $COL_VOUCHER_IS_ACTIVE INTEGER DEFAULT 1,
+                $COL_VOUCHER_DESCRIPTION TEXT
+            )
+        """.trimIndent()
+
         db.execSQL(createUsersTable)
         db.execSQL(createCartTable)
         db.execSQL(createOrdersTable)
         db.execSQL(createAddressesTable)
         db.execSQL(createWishlistTable)
+        db.execSQL(createVouchersTable)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 5) {
-            // Thêm cột is_admin nếu chưa có
+        if (oldVersion < 8) {
+            // Tạo bảng vouchers cho version 8
             try {
-                db.execSQL("ALTER TABLE $TABLE_USERS ADD COLUMN $COL_IS_ADMIN INTEGER DEFAULT 0")
+                val createVouchersTable = """
+                    CREATE TABLE IF NOT EXISTS $TABLE_VOUCHERS (
+                        $COL_VOUCHER_ID TEXT PRIMARY KEY,
+                        $COL_VOUCHER_CODE TEXT NOT NULL UNIQUE,
+                        $COL_VOUCHER_DISCOUNT_PERCENT REAL DEFAULT 0,
+                        $COL_VOUCHER_DISCOUNT_AMOUNT REAL DEFAULT 0,
+                        $COL_VOUCHER_DISCOUNT_TYPE TEXT NOT NULL DEFAULT 'PERCENT',
+                        $COL_VOUCHER_MIN_ORDER_AMOUNT REAL DEFAULT 0,
+                        $COL_VOUCHER_MAX_DISCOUNT_AMOUNT REAL DEFAULT 0,
+                        $COL_VOUCHER_START_DATE INTEGER NOT NULL,
+                        $COL_VOUCHER_END_DATE INTEGER NOT NULL,
+                        $COL_VOUCHER_USAGE_LIMIT INTEGER DEFAULT 0,
+                        $COL_VOUCHER_USED_COUNT INTEGER DEFAULT 0,
+                        $COL_VOUCHER_IS_ACTIVE INTEGER DEFAULT 1,
+                        $COL_VOUCHER_DESCRIPTION TEXT
+                    )
+                """.trimIndent()
+                db.execSQL(createVouchersTable)
             } catch (e: Exception) {
-                // Cột đã tồn tại hoặc có lỗi, bỏ qua
+                // Bỏ qua nếu bảng đã tồn tại
             }
         }
         
+        if (oldVersion < 7) {
+            // Xóa cột role nếu tồn tại (SQLite không hỗ trợ DROP COLUMN trực tiếp)
+            // Cần tạo lại bảng không có cột role
+            try {
+                // Tạo bảng tạm mới không có cột role
+                db.execSQL("""
+                    CREATE TABLE ${TABLE_USERS}_new (
+                        $COL_USER_ID TEXT PRIMARY KEY,
+                        $COL_PHONE_NUMBER TEXT NOT NULL,
+                        $COL_FULL_NAME TEXT,
+                        $COL_EMAIL TEXT,
+                        $COL_PASSWORD TEXT,
+                        $COL_AVATAR_PATH TEXT,
+                        $COL_CREATED_AT INTEGER NOT NULL,
+                        $COL_IS_LOGGED_IN INTEGER DEFAULT 0,
+                        $COL_AUTH_TOKEN TEXT,
+                        $COL_IS_ADMIN INTEGER DEFAULT 0
+                    )
+                """.trimIndent())
+                
+                // Copy dữ liệu từ bảng cũ sang bảng mới (bỏ qua cột role nếu có)
+                db.execSQL("""
+                    INSERT INTO ${TABLE_USERS}_new (
+                        $COL_USER_ID, $COL_PHONE_NUMBER, $COL_FULL_NAME, $COL_EMAIL,
+                        $COL_PASSWORD, $COL_AVATAR_PATH, $COL_CREATED_AT,
+                        $COL_IS_LOGGED_IN, $COL_AUTH_TOKEN, $COL_IS_ADMIN
+                    )
+                    SELECT 
+                        $COL_USER_ID, $COL_PHONE_NUMBER, $COL_FULL_NAME, $COL_EMAIL,
+                        $COL_PASSWORD, $COL_AVATAR_PATH, $COL_CREATED_AT,
+                        $COL_IS_LOGGED_IN, $COL_AUTH_TOKEN, $COL_IS_ADMIN
+                    FROM $TABLE_USERS
+                """.trimIndent())
+                
+                // Xóa bảng cũ
+                db.execSQL("DROP TABLE $TABLE_USERS")
+                
+                // Đổi tên bảng mới thành tên cũ
+                db.execSQL("ALTER TABLE ${TABLE_USERS}_new RENAME TO $TABLE_USERS")
+            } catch (e: Exception) {
+                // Nếu có lỗi, có thể cột role không tồn tại hoặc có vấn đề khác
+                // Thử thêm cột is_admin nếu chưa có (cho version cũ hơn)
+                try {
+                    db.execSQL("ALTER TABLE $TABLE_USERS ADD COLUMN $COL_IS_ADMIN INTEGER DEFAULT 0")
+                } catch (e2: Exception) {
+                    // Bỏ qua nếu cột đã tồn tại
+                }
+            }
+        }
+        
+        if (oldVersion < 6 && oldVersion >= 4) {
+            // Thêm cột is_admin nếu chưa có (thiết bị cũ từ version 4-5)
+            try {
+                db.execSQL("ALTER TABLE $TABLE_USERS ADD COLUMN $COL_IS_ADMIN INTEGER DEFAULT 0")
+            } catch (e: Exception) {
+                // Cột đã tồn tại hoặc có lỗi, bỏ qua để tránh crash
+            }
+        }
+
         // Nếu version quá cũ, drop và tạo lại
         if (oldVersion < 4) {
             db.execSQL("DROP TABLE IF EXISTS $TABLE_USERS")

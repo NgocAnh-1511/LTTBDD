@@ -13,6 +13,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.bumptech.glide.Glide
 import com.example.coffeeshop.Domain.UserModel
 import com.example.coffeeshop.Manager.UserManager
@@ -236,7 +238,22 @@ class CompleteProfileActivity : AppCompatActivity() {
                     email = email,
                     avatarPath = currentAvatarPath // Lưu đường dẫn ảnh đại diện
                 )
-                userManager.saveUser(updatedUser)
+                lifecycleScope.launch {
+                    val success = userManager.updateUser(
+                        currentUser.userId,
+                        fullName = fullName,
+                        email = email,
+                        avatarPath = currentAvatarPath
+                    )
+                    if (success) {
+                        Toast.makeText(this@CompleteProfileActivity, "Cập nhật thông tin thành công!", Toast.LENGTH_SHORT).show()
+                        val intent = Intent(this@CompleteProfileActivity, MainActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                        finish()
+                    }
+                }
+                return@setOnClickListener
                 Toast.makeText(this, "Cập nhật thông tin thành công!", Toast.LENGTH_SHORT).show()
 
                 val intent = Intent(this, MainActivity::class.java)

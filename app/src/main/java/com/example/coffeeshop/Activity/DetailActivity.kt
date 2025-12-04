@@ -17,6 +17,7 @@ import com.google.gson.Gson
 import java.util.Locale
 import android.view.ViewGroup
 import com.example.coffeeshop.Utils.dpToPx
+import com.example.coffeeshop.Utils.formatVND
 
 class DetailActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDetailBinding
@@ -72,7 +73,7 @@ class DetailActivity : AppCompatActivity() {
             }
 
             // Set price
-            binding.priceTxt.text = "$${String.format(Locale.getDefault(), "%.2f", item.price)}"
+            binding.priceTxt.text = formatVND(item.price)
 
             // Set rating
             binding.ratingTxt.text = String.format(Locale.getDefault(), "%.1f", item.rating)
@@ -179,7 +180,7 @@ class DetailActivity : AppCompatActivity() {
             }
 
             val totalPrice = basePrice * quantity
-            binding.priceTxt.text = "$${String.format(Locale.getDefault(), "%.2f", totalPrice)}"
+            binding.priceTxt.text = formatVND(totalPrice)
         }
     }
 

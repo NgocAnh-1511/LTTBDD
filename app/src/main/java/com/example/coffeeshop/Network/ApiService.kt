@@ -80,6 +80,20 @@ interface ApiService {
     
     @DELETE("vouchers/{voucherId}")
     suspend fun deleteVoucher(@Header("Authorization") token: String, @Path("voucherId") voucherId: String): Response<Unit>
+    
+    // Public Products endpoints (không cần auth)
+    @GET("public/products")
+    suspend fun getProducts(@Query("categoryId") categoryId: Int? = null): Response<List<ProductResponse>>
+    
+    @GET("public/products/{id}")
+    suspend fun getProduct(@Path("id") id: Int): Response<ProductResponse>
+    
+    // Public Categories endpoints (không cần auth)
+    @GET("public/categories")
+    suspend fun getCategories(): Response<List<CategoryResponse>>
+    
+    @GET("public/categories/{id}")
+    suspend fun getCategory(@Path("id") id: Int): Response<CategoryResponse>
 }
 
 // Request DTOs
@@ -270,6 +284,48 @@ data class VoucherResponse(
             usedCount = usedCount ?: used_count ?: 0,
             isActive = isActive ?: (is_active == true) ?: true,
             description = description ?: ""
+        )
+    }
+}
+
+// Product Response DTOs
+data class ProductResponse(
+    val id: Int,
+    val name: String,
+    val description: String? = null,
+    val price: Double,
+    val originalPrice: Double? = null,
+    val imageUrl: String? = null,
+    val stock: Int = 0,
+    val isActive: Boolean = true,
+    val categoryId: Int? = null,
+    val category: CategoryResponse? = null
+) {
+    fun toItemsModel(): com.example.coffeeshop.Domain.ItemsModel {
+        return com.example.coffeeshop.Domain.ItemsModel(
+            title = name,
+            description = description ?: "",
+            picUrl = if (imageUrl != null) arrayListOf(imageUrl) else arrayListOf(),
+            price = price,
+            rating = 0.0,
+            numberInCart = 0,
+            extra = "",
+            categoryId = categoryId?.toString() ?: ""
+        )
+    }
+}
+
+// Category Response DTOs
+data class CategoryResponse(
+    val id: Int,
+    val name: String,
+    val description: String? = null,
+    val imageUrl: String? = null
+) {
+    fun toCategoryModel(): com.example.coffeeshop.Domain.CategoryModel {
+        return com.example.coffeeshop.Domain.CategoryModel(
+            id = id,
+            title = name
         )
     }
 }

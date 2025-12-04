@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.coffeeshop.Domain.OrderModel
 import com.example.coffeeshop.R
 import com.example.coffeeshop.databinding.ViewholderAdminOrderBinding
+import com.example.coffeeshop.Utils.formatVND
 import java.util.Locale
 
 class AdminOrderAdapter(
@@ -38,7 +39,7 @@ class AdminOrderAdapter(
         holder.binding.orderIdTxt.text = "Order #${order.orderId.take(8)}"
         holder.binding.orderDateTxt.text = order.getFormattedDate()
         holder.binding.itemCountTxt.text = order.getItemCount().toString()
-        holder.binding.totalPriceTxt.text = "$${String.format(Locale.getDefault(), "%.2f", order.totalPrice)}"
+        holder.binding.totalPriceTxt.text = formatVND(order.totalPrice)
         
         // Customer name
         holder.binding.customerNameTxt.text = "Khách hàng: ${if (order.customerName.isNotEmpty()) order.customerName else order.phoneNumber}"

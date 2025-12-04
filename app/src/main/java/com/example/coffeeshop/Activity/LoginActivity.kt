@@ -7,10 +7,12 @@ import android.view.ViewTreeObserver
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.example.coffeeshop.Manager.UserManager
 import com.example.coffeeshop.R
 import com.example.coffeeshop.Utils.ValidationUtils
 import com.example.coffeeshop.databinding.ActivityLoginBinding
+import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLoginBinding
@@ -104,51 +106,36 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Kiểm tra thông tin đăng nhập trong database
-            val user = userManager.login(phoneNumber, password)
-            if (user != null) {
-                // Chuyển giỏ hàng tạm vào database
-                val cartManager = com.example.coffeeshop.Manager.CartManager(this)
-                cartManager.migrateTempCartToDatabase(user.userId)
-                
-                Toast.makeText(this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show()
-                
-                // Kiểm tra xem có cần redirect đến CheckoutActivity không
-                val redirectToCheckout = intent.getBooleanExtra("redirectToCheckout", false)
-                val intent = if (redirectToCheckout) {
-                    Intent(this, CheckoutActivity::class.java)
-                } else {
-                    Intent(this, MainActivity::class.java)
-                }
-                startActivity(intent)
-                finish()
-            } else {
-                // Không tìm thấy trong SQLite, thử tìm trên Firebase ngay lập tức
-                binding.btnLogin.isEnabled = false
-                Toast.makeText(this, "Đang kiểm tra trên server...", Toast.LENGTH_SHORT).show()
-                userManager.loginFromFirebase(phoneNumber, password) { firebaseUser ->
-                    runOnUiThread {
-                        binding.btnLogin.isEnabled = true
-                        if (firebaseUser != null) {
-                            // Chuyển giỏ hàng tạm vào database
-                            val cartManager = com.example.coffeeshop.Manager.CartManager(this)
-                            cartManager.migrateTempCartToDatabase(firebaseUser.userId)
-                            
-                            Toast.makeText(this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show()
-                            
-                            // Kiểm tra xem có cần redirect đến CheckoutActivity không
-                            val redirectToCheckout = intent.getBooleanExtra("redirectToCheckout", false)
-                            val intent = if (redirectToCheckout) {
-                                Intent(this, CheckoutActivity::class.java)
-                            } else {
-                                Intent(this, MainActivity::class.java)
-                            }
-                            startActivity(intent)
-                            finish()
+            // Kiểm tra thông tin đăng nhập qua API
+            binding.btnLogin.isEnabled = false
+            Toast.makeText(this, "Đang đăng nhập...", Toast.LENGTH_SHORT).show()
+            
+            lifecycleScope.launch {
+                try {
+                    val user = userManager.login(phoneNumber, password)
+                    if (user != null) {
+                        // Chuyển giỏ hàng tạm vào database
+                        val cartManager = com.example.coffeeshop.Manager.CartManager(this@LoginActivity)
+                        cartManager.migrateTempCartToDatabase(user.userId)
+                        
+                        Toast.makeText(this@LoginActivity, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show()
+                        
+                        // Kiểm tra xem có cần redirect đến CheckoutActivity không
+                        val redirectToCheckout = intent.getBooleanExtra("redirectToCheckout", false)
+                        val intent = if (redirectToCheckout) {
+                            Intent(this@LoginActivity, CheckoutActivity::class.java)
                         } else {
-                            Toast.makeText(this, "Số điện thoại hoặc mật khẩu không đúng!", Toast.LENGTH_SHORT).show()
+                            Intent(this@LoginActivity, MainActivity::class.java)
                         }
+                        startActivity(intent)
+                        finish()
+                    } else {
+                        binding.btnLogin.isEnabled = true
+                        Toast.makeText(this@LoginActivity, "Số điện thoại hoặc mật khẩu không đúng!", Toast.LENGTH_SHORT).show()
                     }
+                } catch (e: Exception) {
+                    binding.btnLogin.isEnabled = true
+                    Toast.makeText(this@LoginActivity, "Lỗi đăng nhập: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -193,33 +180,23 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Kiểm tra số điện thoại đã tồn tại chưa (trong SQLite)
-            if (userManager.isPhoneNumberExists(phoneNumber)) {
-                Toast.makeText(this, "Số điện thoại này đã được đăng ký!", Toast.LENGTH_SHORT).show()
-                binding.etPhone.error = "Số điện thoại đã tồn tại"
-                binding.etPhone.requestFocus()
-                return@setOnClickListener
-            }
-
-            // Kiểm tra trên Firebase (async)
+            // Kiểm tra số điện thoại đã tồn tại chưa (qua API)
             binding.btnContinue.isEnabled = false
-            binding.btnContinue.text = "Đang kiểm tra..."
-            userManager.isPhoneNumberExistsInFirebase(phoneNumber) { exists ->
-                runOnUiThread {
+            binding.btnContinue.text = "Đang đăng ký..."
+            
+            lifecycleScope.launch {
+                try {
+                    android.util.Log.d("LoginActivity", "Starting registration for phone: $phoneNumber")
+                    
+                    // Đăng ký user mới (backend sẽ tự check phone number exists)
+                    val success = userManager.registerUser(phoneNumber, password)
+                    
                     binding.btnContinue.isEnabled = true
                     binding.btnContinue.text = "Tiếp tục"
                     
-                    if (exists) {
-                        Toast.makeText(this, "Số điện thoại này đã được đăng ký!", Toast.LENGTH_SHORT).show()
-                        binding.etPhone.error = "Số điện thoại đã tồn tại"
-                        binding.etPhone.requestFocus()
-                        return@runOnUiThread
-                    }
-
-                    // Đăng ký user mới (không tự động đăng nhập)
-                    val success = userManager.registerUser(phoneNumber, password, autoLogin = false)
                     if (success) {
-                        Toast.makeText(this, "Đăng ký thành công! Vui lòng đăng nhập.", Toast.LENGTH_SHORT).show()
+                        android.util.Log.d("LoginActivity", "Registration successful")
+                        Toast.makeText(this@LoginActivity, "Đăng ký thành công! Vui lòng đăng nhập.", Toast.LENGTH_SHORT).show()
                         
                         // Chuyển về form đăng nhập
                         showLoginForm()
@@ -227,8 +204,16 @@ class LoginActivity : AppCompatActivity() {
                         binding.etPhone.setText(phoneNumber)
                         binding.etPassword.setText("")
                     } else {
-                        Toast.makeText(this, "Đăng ký thất bại. Vui lòng thử lại!", Toast.LENGTH_SHORT).show()
+                        android.util.Log.e("LoginActivity", "Registration failed")
+                        Toast.makeText(this@LoginActivity, "Đăng ký thất bại. Số điện thoại có thể đã được đăng ký hoặc có lỗi xảy ra.", Toast.LENGTH_LONG).show()
                     }
+                } catch (e: Exception) {
+                    android.util.Log.e("LoginActivity", "Registration exception", e)
+                    binding.btnContinue.isEnabled = true
+                    binding.btnContinue.text = "Tiếp tục"
+                    val errorMsg = e.message ?: "Lỗi không xác định"
+                    Toast.makeText(this@LoginActivity, "Lỗi đăng ký: $errorMsg", Toast.LENGTH_LONG).show()
+                    e.printStackTrace()
                 }
             }
         }
@@ -243,17 +228,9 @@ class LoginActivity : AppCompatActivity() {
             // Simulate Facebook login (in real app, integrate Facebook SDK)
             Toast.makeText(this, "Đang đăng nhập bằng Facebook...", Toast.LENGTH_SHORT).show()
             
-            // Create a temporary user for Facebook login
-            val user = com.example.coffeeshop.Domain.UserModel(
-                userId = System.currentTimeMillis().toString(),
-                phoneNumber = "Facebook_${System.currentTimeMillis()}",
-                fullName = "Facebook User",
-                email = "facebook@example.com",
-                password = "",
-                createdAt = System.currentTimeMillis()
-            )
-            
-            userManager.saveUser(user)
+            // Facebook login - cần implement thực tế với Facebook SDK
+            Toast.makeText(this, "Tính năng đăng nhập Facebook chưa được hỗ trợ", Toast.LENGTH_SHORT).show()
+            return@setOnClickListener
             
             // Simulate delay
             binding.root.postDelayed({
@@ -274,17 +251,9 @@ class LoginActivity : AppCompatActivity() {
             // Simulate Facebook registration (in real app, integrate Facebook SDK)
             Toast.makeText(this, "Đang đăng ký bằng Facebook...", Toast.LENGTH_SHORT).show()
             
-            // Create a temporary user for Facebook registration
-            val user = com.example.coffeeshop.Domain.UserModel(
-                userId = System.currentTimeMillis().toString(),
-                phoneNumber = "Facebook_${System.currentTimeMillis()}",
-                fullName = "Facebook User",
-                email = "facebook@example.com",
-                password = "",
-                createdAt = System.currentTimeMillis()
-            )
-            
-            userManager.saveUser(user)
+            // Facebook registration - cần implement thực tế với Facebook SDK
+            Toast.makeText(this, "Tính năng đăng ký Facebook chưa được hỗ trợ", Toast.LENGTH_SHORT).show()
+            return@setOnClickListener
             
             // Simulate delay
             binding.root.postDelayed({

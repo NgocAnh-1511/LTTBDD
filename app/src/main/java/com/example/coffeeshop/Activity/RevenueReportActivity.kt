@@ -8,7 +8,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.coroutines.launch
 import com.example.coffeeshop.Adapter.RevenueReportAdapter
 import com.example.coffeeshop.Domain.OrderModel
 import com.example.coffeeshop.Domain.RevenueReportModel
@@ -145,7 +147,8 @@ class RevenueReportActivity : AppCompatActivity() {
     }
     
     private fun loadRevenueReportInternal(reportType: RevenueReportModel.ReportType) {
-        val allOrders = orderManager.getAllOrdersForAdmin()
+        lifecycleScope.launch {
+            val allOrders = orderManager.getAllOrdersForAdmin()
         
         // Debug: Log tất cả orders và status để kiểm tra
         android.util.Log.d("RevenueReport", "========================================")
@@ -186,7 +189,7 @@ class RevenueReportActivity : AppCompatActivity() {
             binding.totalOrdersTxt.text = "Tổng số đơn: 0"
             reports.clear()
             reportAdapter.updateList(reports)
-            return
+            return@launch
         }
 
         binding.recyclerViewReport.visibility = View.VISIBLE
@@ -282,6 +285,7 @@ class RevenueReportActivity : AppCompatActivity() {
         binding.totalOrdersTxt.text = "Tổng số đơn: $totalOrders"
         
         android.util.Log.d("RevenueReport", "UI text set: revenue='${binding.totalRevenueTxt.text}', orders='${binding.totalOrdersTxt.text}'")
+        }
     }
 
     override fun onResume() {

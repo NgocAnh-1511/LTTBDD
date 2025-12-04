@@ -10,7 +10,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.coroutines.launch
 import com.example.coffeeshop.Adapter.AdminOrderAdapter
 import com.example.coffeeshop.Domain.OrderModel
 import com.example.coffeeshop.Manager.OrderManager
@@ -70,19 +72,21 @@ class AdminOrderActivity : AppCompatActivity() {
     }
 
     private fun loadOrders() {
-        val orders = orderManager.getAllOrdersForAdmin()
-        
-        if (orders.isEmpty()) {
-            binding.recyclerViewOrders.visibility = View.GONE
-            binding.emptyOrderTxt.visibility = View.VISIBLE
-            binding.emptyOrderTxt.alpha = 0f
-            binding.emptyOrderTxt.animate().alpha(1f).setDuration(300).start()
-        } else {
-            binding.recyclerViewOrders.visibility = View.VISIBLE
-            binding.emptyOrderTxt.visibility = View.GONE
-            orderAdapter.updateList(orders)
-            binding.recyclerViewOrders.alpha = 0f
-            binding.recyclerViewOrders.animate().alpha(1f).setDuration(300).start()
+        lifecycleScope.launch {
+            val orders = orderManager.getAllOrdersForAdmin()
+            
+            if (orders.isEmpty()) {
+                binding.recyclerViewOrders.visibility = View.GONE
+                binding.emptyOrderTxt.visibility = View.VISIBLE
+                binding.emptyOrderTxt.alpha = 0f
+                binding.emptyOrderTxt.animate().alpha(1f).setDuration(300).start()
+            } else {
+                binding.recyclerViewOrders.visibility = View.VISIBLE
+                binding.emptyOrderTxt.visibility = View.GONE
+                orderAdapter.updateList(orders)
+                binding.recyclerViewOrders.alpha = 0f
+                binding.recyclerViewOrders.animate().alpha(1f).setDuration(300).start()
+            }
         }
     }
 
@@ -98,12 +102,14 @@ class AdminOrderActivity : AppCompatActivity() {
             .setTitle("Duyệt đơn hàng")
             .setMessage("Bạn có chắc chắn muốn duyệt đơn hàng này?")
             .setPositiveButton("Duyệt") { _, _ ->
-                // Set status thành "Completed" để tính vào doanh thu
-                if (orderManager.updateOrderStatus(order.orderId, "Completed")) {
-                    Toast.makeText(this, "Đã duyệt đơn hàng", Toast.LENGTH_SHORT).show()
-                    loadOrders()
-                } else {
-                    Toast.makeText(this, "Có lỗi xảy ra", Toast.LENGTH_SHORT).show()
+                lifecycleScope.launch {
+                    val success = orderManager.updateOrderStatus(order.orderId, "Completed")
+                    if (success) {
+                        Toast.makeText(this@AdminOrderActivity, "Đã duyệt đơn hàng", Toast.LENGTH_SHORT).show()
+                        loadOrders()
+                    } else {
+                        Toast.makeText(this@AdminOrderActivity, "Có lỗi xảy ra", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             .setNegativeButton("Hủy", null)
@@ -115,11 +121,14 @@ class AdminOrderActivity : AppCompatActivity() {
             .setTitle("Từ chối đơn hàng")
             .setMessage("Bạn có chắc chắn muốn từ chối đơn hàng này?")
             .setPositiveButton("Từ chối") { _, _ ->
-                if (orderManager.updateOrderStatus(order.orderId, "Cancelled")) {
-                    Toast.makeText(this, "Đã từ chối đơn hàng", Toast.LENGTH_SHORT).show()
-                    loadOrders()
-                } else {
-                    Toast.makeText(this, "Có lỗi xảy ra", Toast.LENGTH_SHORT).show()
+                lifecycleScope.launch {
+                    val success = orderManager.updateOrderStatus(order.orderId, "Cancelled")
+                    if (success) {
+                        Toast.makeText(this@AdminOrderActivity, "Đã từ chối đơn hàng", Toast.LENGTH_SHORT).show()
+                        loadOrders()
+                    } else {
+                        Toast.makeText(this@AdminOrderActivity, "Có lỗi xảy ra", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             .setNegativeButton("Hủy", null)

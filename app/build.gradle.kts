@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.coffeeshop"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -80,6 +80,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.coordinatorlayout)
+    implementation("androidx.gridlayout:gridlayout:1.0.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -89,5 +90,11 @@ dependencies {
     // Coroutines for async operations (avoid ANR)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    
+    // Retrofit for API calls
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
 
 }

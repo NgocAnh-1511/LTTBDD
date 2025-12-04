@@ -8,12 +8,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.coroutines.launch
 import com.bumptech.glide.Glide
 import com.example.coffeeshop.Domain.OrderModel
 import com.example.coffeeshop.Manager.OrderManager
 import com.example.coffeeshop.R
 import com.example.coffeeshop.Utils.dpToPx
+import com.example.coffeeshop.Utils.formatVND
 import com.example.coffeeshop.databinding.ActivityOrderDetailBinding
 import com.google.gson.Gson
 import java.util.Locale
@@ -58,10 +61,12 @@ class OrderDetailActivity : AppCompatActivity() {
         super.onResume()
         // Reload order từ database để cập nhật status mới nhất
         orderId?.let { id ->
-            val updatedOrder = orderManager.getOrderById(id)
-            if (updatedOrder != null) {
-                currentOrder = updatedOrder
-                setupUI()
+            lifecycleScope.launch {
+                val updatedOrder = orderManager.getOrderById(id)
+                if (updatedOrder != null) {
+                    currentOrder = updatedOrder
+                    setupUI()
+                }
             }
         }
     }
@@ -71,7 +76,7 @@ class OrderDetailActivity : AppCompatActivity() {
             // Set order info
             binding.orderIdTxt.text = "Order #${order.orderId.take(8)}"
             binding.orderDateTxt.text = order.getFormattedDate()
-            binding.totalPriceTxt.text = "$${String.format(Locale.getDefault(), "%.2f", order.totalPrice)}"
+            binding.totalPriceTxt.text = formatVND(order.totalPrice)
             
             // Set status
             binding.statusTxt.text = order.getStatusText()
@@ -110,7 +115,7 @@ class OrderDetailActivity : AppCompatActivity() {
                     
                     binding.itemTitle.text = item.title
                     val totalPrice = cartItem.getTotalPrice()
-                    binding.itemPrice.text = "$${String.format(Locale.getDefault(), "%.2f", totalPrice)}"
+                    binding.itemPrice.text = formatVND(totalPrice)
                     binding.quantityTxt.text = cartItem.quantity.toString()
 
                     if (item.picUrl.isNotEmpty()) {
@@ -138,13 +143,15 @@ class OrderDetailActivity : AppCompatActivity() {
     
     private fun reloadOrder() {
         orderId?.let { id ->
-            val updatedOrder = orderManager.getOrderById(id)
-            if (updatedOrder != null) {
-                currentOrder = updatedOrder
-                setupUI()
-                android.widget.Toast.makeText(this, "Đã cập nhật trạng thái", android.widget.Toast.LENGTH_SHORT).show()
-            } else {
-                android.widget.Toast.makeText(this, "Không tìm thấy đơn hàng", android.widget.Toast.LENGTH_SHORT).show()
+            lifecycleScope.launch {
+                val updatedOrder = orderManager.getOrderById(id)
+                if (updatedOrder != null) {
+                    currentOrder = updatedOrder
+                    setupUI()
+                    android.widget.Toast.makeText(this@OrderDetailActivity, "Đã cập nhật trạng thái", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    android.widget.Toast.makeText(this@OrderDetailActivity, "Không tìm thấy đơn hàng", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

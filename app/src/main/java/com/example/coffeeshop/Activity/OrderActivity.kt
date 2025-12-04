@@ -10,7 +10,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.coroutines.launch
 import com.example.coffeeshop.Adapter.OrderAdapter
 import com.example.coffeeshop.Domain.OrderModel
 import com.example.coffeeshop.Manager.FirebaseSyncManager
@@ -73,7 +75,8 @@ class OrderActivity : AppCompatActivity() {
     }
 
     private fun loadOrders() {
-        val orders = orderManager.getAllOrders()
+        lifecycleScope.launch {
+            val orders = orderManager.getAllOrders()
         
         if (orders.isEmpty()) {
             binding.recyclerViewOrders.visibility = View.GONE
@@ -89,6 +92,7 @@ class OrderActivity : AppCompatActivity() {
             binding.recyclerViewOrders.alpha = 0f
             binding.recyclerViewOrders.animate().alpha(1f).setDuration(300).start()
         }
+        }
     }
 
     private fun viewOrderDetail(order: OrderModel) {
@@ -103,11 +107,14 @@ class OrderActivity : AppCompatActivity() {
             .setTitle("Hủy đơn hàng")
             .setMessage("Bạn có chắc chắn muốn hủy đơn hàng này?")
             .setPositiveButton("Hủy đơn") { _, _ ->
-                if (orderManager.cancelOrder(order.orderId)) {
-                    Toast.makeText(this, "Đã hủy đơn hàng", Toast.LENGTH_SHORT).show()
-                    loadOrders()
-                } else {
-                    Toast.makeText(this, "Có lỗi xảy ra", Toast.LENGTH_SHORT).show()
+                lifecycleScope.launch {
+                    val success = orderManager.cancelOrder(order.orderId)
+                    if (success) {
+                        Toast.makeText(this@OrderActivity, "Đã hủy đơn hàng", Toast.LENGTH_SHORT).show()
+                        loadOrders()
+                    } else {
+                        Toast.makeText(this@OrderActivity, "Có lỗi xảy ra", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             .setNegativeButton("Không", null)
