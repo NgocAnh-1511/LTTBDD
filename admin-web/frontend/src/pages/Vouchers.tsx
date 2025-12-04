@@ -25,6 +25,8 @@ import {
   Switch,
   Snackbar,
   Chip,
+  Card,
+  CardContent,
 } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import AddIcon from '@mui/icons-material/Add'
@@ -195,10 +197,13 @@ export default function Vouchers() {
     )
   }
 
+  const totalVouchers = vouchers?.length || 0
+  const activeVouchers = vouchers?.filter((v: any) => v.isActive !== false && v.is_active !== false).length || 0
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600 }}>
           Vouchers Management
         </Typography>
         <Box>
@@ -206,7 +211,7 @@ export default function Vouchers() {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleOpenAdd}
-            sx={{ mr: 1 }}
+            sx={{ mr: 1, boxShadow: 2 }}
           >
             Add Voucher
           </Button>
@@ -216,6 +221,10 @@ export default function Vouchers() {
                 onClick={() => refetch()} 
                 disabled={isRefetching}
                 color="primary"
+                sx={{ 
+                  bgcolor: 'primary.light',
+                  '&:hover': { bgcolor: 'primary.main', color: 'white' }
+                }}
               >
                 <RefreshIcon />
               </IconButton>
@@ -223,23 +232,43 @@ export default function Vouchers() {
           </Tooltip>
         </Box>
       </Box>
+
+      {/* Stats Cards */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <Card sx={{ flex: 1, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+          <CardContent>
+            <Typography variant="h6">Total Vouchers</Typography>
+            <Typography variant="h4" sx={{ mt: 1, fontWeight: 600 }}>
+              {totalVouchers}
+            </Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ flex: 1, bgcolor: 'success.light', color: 'success.contrastText' }}>
+          <CardContent>
+            <Typography variant="h6">Active Vouchers</Typography>
+            <Typography variant="h4" sx={{ mt: 1, fontWeight: 600 }}>
+              {activeVouchers}
+            </Typography>
+          </CardContent>
+        </Card>
+      </Box>
       {(isLoading || isRefetching) && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
           <CircularProgress size={24} />
         </Box>
       )}
-      <TableContainer component={Paper} sx={{ mt: 2 }}>
+      <TableContainer component={Paper} sx={{ mt: 2, boxShadow: 3 }}>
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell>Code</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Value</TableCell>
-              <TableCell>Min Order</TableCell>
-              <TableCell>Used</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Actions</TableCell>
+            <TableRow sx={{ bgcolor: 'primary.main' }}>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Code</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Name</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Type</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Value</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Min Order</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Used</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -266,7 +295,13 @@ export default function Vouchers() {
                 const isActive = voucher.isActive !== undefined ? voucher.isActive : (voucher.is_active !== undefined ? voucher.is_active : true)
                 
                 return (
-                  <TableRow key={voucherId}>
+                  <TableRow 
+                    key={voucherId}
+                    sx={{ 
+                      '&:hover': { bgcolor: 'action.hover' },
+                      transition: 'background-color 0.2s'
+                    }}
+                  >
                     <TableCell>{code}</TableCell>
                     <TableCell>{name}</TableCell>
                     <TableCell>{discountType}</TableCell>
@@ -288,21 +323,25 @@ export default function Vouchers() {
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleOpenEdit(voucher)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleOpenDelete(voucher)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                    <TableCell align="center">
+                      <Tooltip title="Edit Voucher">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleOpenEdit(voucher)}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Voucher">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleOpenDelete(voucher)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 )
@@ -314,7 +353,7 @@ export default function Vouchers() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600 }}>
+        <DialogTitle sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>
           {selectedVoucher?.id ? 'Edit Voucher' : 'Add Voucher'}
         </DialogTitle>
         <DialogContent>

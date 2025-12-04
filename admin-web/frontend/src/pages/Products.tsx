@@ -25,6 +25,8 @@ import {
   FormControlLabel,
   Switch,
   Snackbar,
+  Card,
+  CardContent,
 } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import AddIcon from '@mui/icons-material/Add'
@@ -186,10 +188,13 @@ export default function Products() {
     )
   }
 
+  const totalProducts = products?.length || 0
+  const activeProducts = products?.filter((p: any) => p.isActive !== false && p.is_active !== false).length || 0
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600 }}>
           Products Management
         </Typography>
         <Box>
@@ -197,7 +202,7 @@ export default function Products() {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleOpenAdd}
-            sx={{ mr: 1 }}
+            sx={{ mr: 1, boxShadow: 2 }}
           >
             Add Product
           </Button>
@@ -207,6 +212,10 @@ export default function Products() {
                 onClick={() => refetch()} 
                 disabled={isRefetching}
                 color="primary"
+                sx={{ 
+                  bgcolor: 'primary.light',
+                  '&:hover': { bgcolor: 'primary.main', color: 'white' }
+                }}
               >
                 <RefreshIcon />
               </IconButton>
@@ -214,22 +223,46 @@ export default function Products() {
           </Tooltip>
         </Box>
       </Box>
+
+      {/* Stats Cards */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <Card sx={{ flex: 1, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6">Total Products</Typography>
+            </Box>
+            <Typography variant="h4" sx={{ mt: 1, fontWeight: 600 }}>
+              {totalProducts}
+            </Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ flex: 1, bgcolor: 'success.light', color: 'success.contrastText' }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6">Active Products</Typography>
+            </Box>
+            <Typography variant="h4" sx={{ mt: 1, fontWeight: 600 }}>
+              {activeProducts}
+            </Typography>
+          </CardContent>
+        </Card>
+      </Box>
       {(isLoading || isRefetching) && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
           <CircularProgress size={24} />
         </Box>
       )}
-      <TableContainer component={Paper} sx={{ mt: 2 }}>
+      <TableContainer component={Paper} sx={{ mt: 2, boxShadow: 3 }}>
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Image</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell>Price</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Actions</TableCell>
+            <TableRow sx={{ bgcolor: 'primary.main' }}>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>ID</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Image</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Name</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Category</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Price</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Description</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -251,7 +284,13 @@ export default function Products() {
                 const categoryName = product.category?.name || product.categoryName || '-'
                 
                 return (
-                  <TableRow key={productId}>
+                  <TableRow 
+                    key={productId}
+                    sx={{ 
+                      '&:hover': { bgcolor: 'action.hover' },
+                      transition: 'background-color 0.2s'
+                    }}
+                  >
                     <TableCell>{productId}</TableCell>
                     <TableCell>
                       {imageUrl ? (
@@ -270,26 +309,32 @@ export default function Products() {
                     <TableCell>{name}</TableCell>
                     <TableCell>{categoryName}</TableCell>
                     <TableCell>
-                      {typeof price === 'number' ? price.toLocaleString('vi-VN') + 'đ' : String(price)}
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main' }}>
+                        {typeof price === 'number' ? price.toLocaleString('vi-VN') + 'đ' : String(price)}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       {description.length > 50 ? description.substring(0, 50) + '...' : description}
                     </TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleOpenEdit(product)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleOpenDelete(product)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                    <TableCell align="center">
+                      <Tooltip title="Edit Product">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleOpenEdit(product)}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Product">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleOpenDelete(product)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 )
@@ -301,7 +346,7 @@ export default function Products() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600 }}>
+        <DialogTitle sx={{ fontWeight: 600, bgcolor: 'primary.main', color: 'white' }}>
           {selectedProduct?.id ? 'Edit Product' : 'Add Product'}
         </DialogTitle>
         <DialogContent>
