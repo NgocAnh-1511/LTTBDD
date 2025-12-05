@@ -2,10 +2,12 @@ package com.example.coffeeshop.Network
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.gson.*
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.lang.reflect.Type
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
@@ -67,10 +69,15 @@ object ApiClient {
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build()
             
+            // Custom Gson với deserializer cho UserResponse.isAdmin (xử lý cả Int và Boolean)
+            val gson = GsonBuilder()
+                .registerTypeAdapter(com.example.coffeeshop.Network.UserResponse::class.java, UserResponseDeserializer())
+                .create()
+            
             retrofit = Retrofit.Builder()
                 .baseUrl(baseUrl)
                 .client(okHttpClient)
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
             
             apiService = retrofit!!.create(ApiService::class.java)
@@ -92,6 +99,58 @@ object ApiClient {
     fun clearToken(context: Context) {
         val prefs: SharedPreferences = context.getSharedPreferences("CoffeeShopPrefs", Context.MODE_PRIVATE)
         prefs.edit().remove("auth_token").apply()
+    }
+}
+
+/**
+ * Custom deserializer cho UserResponse để xử lý isAdmin có thể là Int (0/1) hoặc Boolean
+ */
+class UserResponseDeserializer : JsonDeserializer<com.example.coffeeshop.Network.UserResponse> {
+    override fun deserialize(
+        json: JsonElement?,
+        typeOfT: Type?,
+        context: JsonDeserializationContext?
+    ): com.example.coffeeshop.Network.UserResponse {
+        if (json == null || !json.isJsonObject) {
+            throw JsonParseException("Invalid UserResponse JSON")
+        }
+        
+        val jsonObject = json.asJsonObject
+        
+        // Parse isAdmin: có thể là Int, Boolean, hoặc null
+        val isAdminValue: Int? = when {
+            !jsonObject.has("isAdmin") || jsonObject.get("isAdmin").isJsonNull -> null
+            else -> {
+                val isAdminElement = jsonObject.get("isAdmin")
+                when {
+                    isAdminElement.isJsonPrimitive -> {
+                        val primitive = isAdminElement.asJsonPrimitive
+                        when {
+                            primitive.isNumber -> primitive.asInt
+                            primitive.isBoolean -> if (primitive.asBoolean) 1 else 0
+                            else -> null
+                        }
+                    }
+                    else -> null
+                }
+            }
+        }
+        
+        fun getStringOrNull(key: String): String? {
+            val element = jsonObject.get(key)
+            return if (element != null && !element.isJsonNull) element.asString else null
+        }
+        
+        return com.example.coffeeshop.Network.UserResponse(
+            userId = getStringOrNull("userId") ?: "",
+            phoneNumber = getStringOrNull("phoneNumber") ?: "",
+            fullName = getStringOrNull("fullName"),
+            email = getStringOrNull("email"),
+            avatarPath = getStringOrNull("avatarPath"),
+            isAdmin = isAdminValue,
+            createdAt = getStringOrNull("createdAt"),
+            updatedAt = getStringOrNull("updatedAt")
+        )
     }
 }
 

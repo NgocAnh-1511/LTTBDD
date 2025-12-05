@@ -47,8 +47,6 @@ class ProfileActivity : AppCompatActivity() {
         // Không bắt buộc đăng nhập, nhưng nếu chưa đăng nhập thì hiển thị thông báo
         if (!userManager.isLoggedIn()) {
             binding.userNameTxt.text = "Khách"
-            binding.katPointsDetailTxt.text = "0 KAT"
-            binding.katRankInfoTxt.text = "Đăng nhập để tích lũy KAT"
             // Hiển thị thống kê = 0
             binding.totalOrdersTxt.text = "0"
             binding.completedOrdersTxt.text = "0"
@@ -71,8 +69,6 @@ class ProfileActivity : AppCompatActivity() {
             loadStatistics()
         } else {
             binding.userNameTxt.text = "Khách"
-            binding.katPointsDetailTxt.text = "0 KAT"
-            binding.katRankInfoTxt.text = "Đăng nhập để tích lũy KAT"
             // Hiển thị thống kê = 0
             binding.totalOrdersTxt.text = "0"
             binding.completedOrdersTxt.text = "0"
@@ -142,19 +138,6 @@ class ProfileActivity : AppCompatActivity() {
         binding.totalOrdersTxt.text = totalOrders.toString()
         binding.completedOrdersTxt.text = completedOrders.size.toString()
         binding.totalSpentTxt.text = formatVND(totalSpent)
-        
-        // Tính KAT points (1 KAT = 10.000 VND)
-        val katPoints = (totalSpent / 10000).toInt()
-        binding.katPointsDetailTxt.text = "$katPoints KAT"
-        
-        // Tính hạng thành viên
-        val rankInfo = when {
-            katPoints >= 500 -> "Bạn đang ở hạng GOLD"
-            katPoints >= 200 -> "Bạn đang ở hạng SILVER"
-            katPoints >= 100 -> "Cần thêm ${200 - katPoints} KAT để lên hạng SILVER"
-            else -> "Cần thêm ${100 - katPoints} KAT để lên hạng SILVER"
-        }
-        binding.katRankInfoTxt.text = rankInfo
         }
     }
 
@@ -164,60 +147,7 @@ class ProfileActivity : AppCompatActivity() {
             finish()
         }
 
-        // Edit profile button
-        binding.editProfileBtn.setOnClickListener {
-            if (!userManager.isLoggedIn()) {
-                Toast.makeText(this, "Vui lòng đăng nhập", Toast.LENGTH_SHORT).show()
-                val intent = Intent(this, LoginActivity::class.java)
-                startActivity(intent)
-            } else {
-                val user = userManager.getCurrentUser()
-                if (user != null && (user.fullName.isEmpty() || user.email.isEmpty())) {
-                    // Navigate to CompleteProfileActivity if profile is incomplete
-                    val intent = Intent(this, CompleteProfileActivity::class.java)
-                    startActivity(intent)
-                } else if (user != null) {
-                    // Navigate to AccountInfoActivity to view/edit account info
-                    val intent = Intent(this, AccountInfoActivity::class.java)
-                    startActivity(intent)
-                }
-            }
-        }
-
-        // Menu items
-        binding.myOrdersBtn.setOnClickListener {
-            if (!userManager.isLoggedIn()) {
-                Toast.makeText(this, "Vui lòng đăng nhập để xem đơn hàng", Toast.LENGTH_SHORT).show()
-                val intent = Intent(this, LoginActivity::class.java)
-                startActivity(intent)
-            } else {
-                val intent = Intent(this, OrderActivity::class.java)
-                startActivity(intent)
-            }
-        }
-
-        binding.addressBtnInProfile.setOnClickListener {
-            if (!userManager.isLoggedIn()) {
-                Toast.makeText(this, "Vui lòng đăng nhập để quản lý địa chỉ", Toast.LENGTH_SHORT).show()
-                val intent = Intent(this, LoginActivity::class.java)
-                startActivity(intent)
-            } else {
-                val intent = Intent(this, AddressListActivity::class.java)
-                startActivity(intent)
-            }
-        }
-
-        binding.wishlistBtnInProfile.setOnClickListener {
-            val intent = Intent(this, WishlistActivity::class.java)
-            startActivity(intent)
-        }
-
-        binding.vouchersBtn.setOnClickListener {
-            val intent = Intent(this, VoucherListActivity::class.java)
-            startActivity(intent)
-        }
-
-        // List view click listeners (duplicate for both grid and list views)
+        // List view click listeners
         binding.myOrdersBtnList.setOnClickListener {
             if (!userManager.isLoggedIn()) {
                 Toast.makeText(this, "Vui lòng đăng nhập để xem đơn hàng", Toast.LENGTH_SHORT).show()
@@ -250,6 +180,30 @@ class ProfileActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        // Complete Profile button
+        binding.completeProfileBtnList.setOnClickListener {
+            if (!userManager.isLoggedIn()) {
+                Toast.makeText(this, "Vui lòng đăng nhập", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, LoginActivity::class.java)
+                startActivity(intent)
+            } else {
+                val intent = Intent(this, CompleteProfileActivity::class.java)
+                startActivity(intent)
+            }
+        }
+
+        // Change Password button
+        binding.changePasswordBtnList.setOnClickListener {
+            if (!userManager.isLoggedIn()) {
+                Toast.makeText(this, "Vui lòng đăng nhập", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, LoginActivity::class.java)
+                startActivity(intent)
+            } else {
+                val intent = Intent(this, ChangePasswordActivity::class.java)
+                startActivity(intent)
+            }
+        }
+
         // Admin functions (only visible for admin users)
         if (userManager.isLoggedIn() && userManager.isAdmin()) {
             binding.adminSectionCard.visibility = View.VISIBLE
@@ -276,8 +230,9 @@ class ProfileActivity : AppCompatActivity() {
                 
                 // Chuyển về profile khách
                 binding.userNameTxt.text = "Khách"
-                binding.katPointsDetailTxt.text = "0 KAT"
-                binding.katRankInfoTxt.text = "Đăng nhập để tích lũy KAT"
+                binding.totalOrdersTxt.text = "0"
+                binding.completedOrdersTxt.text = "0"
+                binding.totalSpentTxt.text = formatVND(0.0)
                 updateLogoutButton()
             } else {
                 // Chưa đăng nhập, chuyển đến màn hình đăng nhập/đăng ký

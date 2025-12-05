@@ -246,7 +246,8 @@
                 android:minHeight="280dp"
                 android:layout_marginTop="8dp"
                 android:clipToPadding="false"
-                android:paddingHorizontal="8dp" />
+                android:paddingHorizontal="8dp"
+                android:contentDescription="For You products list" />
 
             <!-- News & Events Section -->
             <LinearLayout
@@ -313,7 +314,6 @@
                     android:layout_weight="0.2"
                     android:orientation="vertical"
                     android:gravity="center"
-                    android:paddingVertical="8dp"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="?attr/selectableItemBackground">
@@ -324,16 +324,20 @@
                         android:minWidth="32dp"
                         android:minHeight="32dp"
                         android:layout_gravity="center"
-                        app:srcCompat="@drawable/btn_1" />
+                        app:srcCompat="@drawable/ic_home" />
 
                     <TextView
+                        android:id="@+id/homeBtnText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="@string/explorer"
+                        android:text="Trang chủ"
                         android:textSize="12sp"
                         android:textAlignment="center"
-                        android:textColor="@color/darkBrown" />
+                        android:textColor="@color/darkBrown"
+                        android:maxLines="1"
+                        android:ellipsize="none"
+                        android:visibility="visible" />
                 </LinearLayout>
 
                 <LinearLayout

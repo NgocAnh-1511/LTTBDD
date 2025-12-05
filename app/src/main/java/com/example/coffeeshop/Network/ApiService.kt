@@ -186,10 +186,19 @@ data class UserResponse(
     val fullName: String? = null,
     val email: String? = null,
     val avatarPath: String? = null,
-    val isAdmin: Boolean = false,
+    // Backend trả về isAdmin dưới dạng number (0/1), không phải boolean
+    // Sử dụng Int? để nhận number, sau đó convert sang boolean bằng getIsAdmin()
+    val isAdmin: Int? = null,
     val createdAt: String? = null,
     val updatedAt: String? = null
-)
+) {
+    /**
+     * Convert isAdmin từ Int (0/1) sang Boolean
+     */
+    fun getIsAdmin(): Boolean {
+        return (isAdmin ?: 0) != 0
+    }
+}
 
 data class OrderResponse(
     val orderId: String? = null,

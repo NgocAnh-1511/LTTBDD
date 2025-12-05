@@ -8,6 +8,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.example.coffeeshop.Manager.UserManager
 import com.example.coffeeshop.R
 import com.example.coffeeshop.Utils.ValidationUtils
@@ -72,9 +74,47 @@ class ChangePasswordActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Không dùng database - chỉ hiển thị thông báo thành công
-            Toast.makeText(this, "Đổi mật khẩu thành công!", Toast.LENGTH_SHORT).show()
-            finish()
+            // Gọi API để cập nhật mật khẩu
+            val currentUser = userManager.getCurrentUser()
+            if (currentUser == null) {
+                Toast.makeText(this, "Phiên đăng nhập đã hết hạn", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, LoginActivity::class.java)
+                startActivity(intent)
+                finish()
+                return@setOnClickListener
+            }
+
+            // Disable button để tránh click nhiều lần
+            binding.btnChangePassword.isEnabled = false
+            binding.btnChangePassword.text = "Đang xử lý..."
+
+            lifecycleScope.launch {
+                try {
+                    val success = userManager.updateUser(
+                        userId = currentUser.userId,
+                        password = newPassword
+                    )
+                    
+                    binding.btnChangePassword.isEnabled = true
+                    binding.btnChangePassword.text = "Đổi mật khẩu"
+                    
+                    if (success) {
+                        Toast.makeText(this@ChangePasswordActivity, "Đổi mật khẩu thành công!", Toast.LENGTH_SHORT).show()
+                        // Xóa các field sau khi thành công
+                        binding.etCurrentPassword.text?.clear()
+                        binding.etNewPassword.text?.clear()
+                        binding.etConfirmPassword.text?.clear()
+                        finish()
+                    } else {
+                        Toast.makeText(this@ChangePasswordActivity, "Đổi mật khẩu thất bại. Vui lòng kiểm tra lại thông tin và thử lại.", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("ChangePasswordActivity", "Error changing password", e)
+                    binding.btnChangePassword.isEnabled = true
+                    binding.btnChangePassword.text = "Đổi mật khẩu"
+                    Toast.makeText(this@ChangePasswordActivity, "Có lỗi xảy ra: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         // Bottom Navigation

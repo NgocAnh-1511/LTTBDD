@@ -189,6 +189,11 @@ class CompleteProfileActivity : AppCompatActivity() {
     }
 
     private fun setupClickListeners() {
+        // Back button - quay về ProfileActivity
+        binding.btnBack.setOnClickListener {
+            finish()
+        }
+        
         // Click vào avatar hoặc icon camera để chọn ảnh
         binding.ivProfileAvatar.setOnClickListener {
             openImagePicker()
@@ -247,19 +252,14 @@ class CompleteProfileActivity : AppCompatActivity() {
                     )
                     if (success) {
                         Toast.makeText(this@CompleteProfileActivity, "Cập nhật thông tin thành công!", Toast.LENGTH_SHORT).show()
-                        val intent = Intent(this@CompleteProfileActivity, MainActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        // Chuyển về ProfileActivity để hiển thị thông tin đã cập nhật
+                        val intent = Intent(this@CompleteProfileActivity, ProfileActivity::class.java)
                         startActivity(intent)
                         finish()
+                    } else {
+                        Toast.makeText(this@CompleteProfileActivity, "Cập nhật thông tin thất bại. Vui lòng thử lại.", Toast.LENGTH_SHORT).show()
                     }
                 }
-                return@setOnClickListener
-                Toast.makeText(this, "Cập nhật thông tin thành công!", Toast.LENGTH_SHORT).show()
-
-                val intent = Intent(this, MainActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                startActivity(intent)
-                finish()
             } else {
                 Toast.makeText(this, "Phiên đăng nhập đã hết hạn", Toast.LENGTH_SHORT).show()
                 val intent = Intent(this, LoginActivity::class.java)

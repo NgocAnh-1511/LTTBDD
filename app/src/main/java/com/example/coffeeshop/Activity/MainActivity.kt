@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bestSellerAdapter: PopularAdapter
     private lateinit var forYouAdapter: PopularAdapter
     private lateinit var newsAdapter: NewsAdapter
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -117,7 +117,7 @@ class MainActivity : AppCompatActivity() {
             } else {
                 user.phoneNumber
             }
-            
+
             // Load và hiển thị ảnh đại diện
             if (user.avatarPath.isNotEmpty()) {
                 val imageFile = File(filesDir, user.avatarPath)
@@ -243,7 +243,7 @@ class MainActivity : AppCompatActivity() {
                 // Filter items with rating >= 4.5 for best seller
                 var bestSellers = items.filter { it.rating >= 4.5 }.toMutableList()
                 android.util.Log.d("MainActivity", "Best Seller - Items with rating >= 4.5: ${bestSellers.size}")
-                
+
                 // Nếu không có items nào có rating >= 4.5, lấy top items theo rating
                 if (bestSellers.isEmpty()) {
                     // Sắp xếp theo rating giảm dần và lấy top 5
@@ -252,13 +252,13 @@ class MainActivity : AppCompatActivity() {
                         .toMutableList()
                     android.util.Log.d("MainActivity", "Best Seller - Using top 5 by rating: ${bestSellers.size}")
                 }
-                
+
                 // Nếu vẫn không có, hiển thị tất cả items (có thể dữ liệu chưa có rating)
                 if (bestSellers.isEmpty()) {
                     bestSellers = items.toMutableList()
                     android.util.Log.d("MainActivity", "Best Seller - Using all items: ${bestSellers.size}")
                 }
-                
+
                 bestSellerAdapter.updateList(bestSellers)
                 android.util.Log.d("MainActivity", "Best Seller - Updated adapter with ${bestSellers.size} items")
             } else {
@@ -286,10 +286,10 @@ class MainActivity : AppCompatActivity() {
         binding.progressBarBanner.visibility = View.VISIBLE
         bannerAdapter = BannerAdapter(mutableListOf())
         binding.bannerViewPager.adapter = bannerAdapter
-        
+
         // Setup banner indicators
         setupBannerIndicators()
-        
+
         // Handle page change to update indicators
         binding.bannerViewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
@@ -312,16 +312,16 @@ class MainActivity : AppCompatActivity() {
     private fun setupBannerIndicators() {
         val indicatorCount = bannerAdapter.itemCount
         binding.bannerIndicator.removeAllViews()
-        
+
         if (indicatorCount <= 1) return
-        
+
         val indicators = arrayOfNulls<ImageView>(indicatorCount)
         val layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
         layoutParams.setMargins(8, 0, 8, 0)
-        
+
         for (i in indicators.indices) {
             indicators[i] = ImageView(this)
             indicators[i]?.layoutParams = layoutParams

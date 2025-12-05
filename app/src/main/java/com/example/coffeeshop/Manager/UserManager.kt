@@ -74,7 +74,7 @@ class UserManager(private val context: Context) {
                     password = "", // Không lưu password
                     avatarPath = userResponse.avatarPath ?: "",
                     createdAt = System.currentTimeMillis(), // API không trả về createdAt
-                    isAdmin = userResponse.isAdmin
+                    isAdmin = userResponse.getIsAdmin()
                 )
                 
                 saveUserToLocal(user)
@@ -122,7 +122,7 @@ class UserManager(private val context: Context) {
                     password = "",
                     avatarPath = userResponse.avatarPath ?: "",
                     createdAt = System.currentTimeMillis(),
-                    isAdmin = userResponse.isAdmin
+                    isAdmin = userResponse.getIsAdmin()
                 )
                 
                 saveUserToLocal(user)
@@ -181,7 +181,7 @@ class UserManager(private val context: Context) {
                     password = "",
                     avatarPath = userResponse.avatarPath ?: "",
                     createdAt = System.currentTimeMillis(),
-                    isAdmin = userResponse.isAdmin
+                    isAdmin = userResponse.getIsAdmin()
                 )
                 
                 saveUserToLocal(user)
@@ -200,14 +200,20 @@ class UserManager(private val context: Context) {
     suspend fun updateUser(userId: String, fullName: String? = null, email: String? = null, password: String? = null, avatarPath: String? = null): Boolean = withContext(Dispatchers.IO) {
         try {
             val token = ApiClient.getToken(context) ?: return@withContext false
+            android.util.Log.d("UserManager", "Updating user: userId=$userId, hasPassword=${password != null}, hasFullName=${fullName != null}, hasEmail=${email != null}")
+            
             val response = apiService.updateUser(
                 "Bearer $token",
                 userId,
                 com.example.coffeeshop.Network.UpdateUserRequest(fullName, email, password, avatarPath)
             )
             
+            android.util.Log.d("UserManager", "Update user response code: ${response.code()}")
+            
             if (response.isSuccessful && response.body() != null) {
                 val userResponse = response.body()!!
+                android.util.Log.d("UserManager", "Update user successful: ${userResponse.userId}")
+                
                 val user = UserModel(
                     userId = userResponse.userId,
                     phoneNumber = userResponse.phoneNumber,
@@ -216,16 +222,28 @@ class UserManager(private val context: Context) {
                     password = "",
                     avatarPath = userResponse.avatarPath ?: "",
                     createdAt = System.currentTimeMillis(),
-                    isAdmin = userResponse.isAdmin
+                    isAdmin = userResponse.getIsAdmin()
                 )
                 
                 saveUserToLocal(user)
                 return@withContext true
+            } else {
+                val errorBody = try {
+                    response.errorBody()?.string()
+                } catch (e: Exception) {
+                    "Cannot read error body: ${e.message}"
+                }
+                android.util.Log.e("UserManager", "Update user failed: ${response.code()} - $errorBody")
+                return@withContext false
             }
-            false
+        } catch (e: com.google.gson.JsonSyntaxException) {
+            android.util.Log.e("UserManager", "Update user JSON parsing error", e)
+            e.printStackTrace()
+            return@withContext false
         } catch (e: Exception) {
             android.util.Log.e("UserManager", "Update user error", e)
-            false
+            e.printStackTrace()
+            return@withContext false
         }
     }
     
