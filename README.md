@@ -27,7 +27,7 @@
 - Xem menu đồ uống (hình ảnh, giá, mô tả)
 - Tùy chỉnh món (size, đá, đường, topping…)
 - Quản lý giỏ hàng & tính tiền tự động
-- Lưu trữ offline bằng Room Database
+- Lưu trữ offline bằng MySQL Database
 - Đăng nhập / Đăng ký
 - Đặt hàng (COD) & xem lịch sử đơn hàng
 
@@ -40,7 +40,7 @@
 | Giỏ hàng (Room + LiveData) | Hoàn thành |
 | Đặt hàng COD              | Hoàn thành |
 | Lịch sử đơn hàng          | Hoàn thành |
-| Offline-first (Room DB)   | Hoàn thành |
+
 
 ### Công nghệ & Thư viện
 - **Ngôn ngữ**: Kotlin
@@ -49,7 +49,7 @@
 - **UI**: XML Layouts + View Binding + ConstraintLayout
 - **Android Jetpack**:
   - ViewModel + LiveData
-  - Room Database
+  - MySQL Database
   - Navigation Component
 - **Hình ảnh**: Glide
 - **Bất đồng bộ**: Kotlin Coroutines
